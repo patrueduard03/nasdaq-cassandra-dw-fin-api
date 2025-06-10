@@ -1,0 +1,283 @@
+{
+  "info": {
+    "name": "Financial Data Warehouse API",
+    "description": "Complete API collection for the Financial Data Warehouse system",
+    "version": "1.0.0",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Assets",
+      "item": [
+        {
+          "name": "Create Asset",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"AAPL\",\n  \"description\": \"Apple Inc. Common Stock\",\n  \"attributes\": {\n    \"type\": \"equity\",\n    \"exchange\": \"NASDAQ\",\n    \"sector\": \"Technology\",\n    \"market_cap\": \"large\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/assets",
+              "host": ["{{base_url}}"],
+              "path": ["assets"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get All Assets",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/assets",
+              "host": ["{{base_url}}"],
+              "path": ["assets"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Asset by ID",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/assets/{{asset_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["assets", "{{asset_id}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Asset",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{base_url}}/assets/{{asset_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["assets", "{{asset_id}}"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Data Sources",
+      "item": [
+        {
+          "name": "Create Data Source",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Nasdaq Data Link\",\n  \"description\": \"Historical and real-time financial market data\",\n  \"provider\": \"Nasdaq\",\n  \"attributes\": {\n    \"version\": \"1.0\",\n    \"rate_limit\": \"50000_requests_per_day\",\n    \"data_types\": [\"OHLCV\", \"fundamentals\"]\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/data-sources",
+              "host": ["{{base_url}}"],
+              "path": ["data-sources"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get All Data Sources",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/data-sources",
+              "host": ["{{base_url}}"],
+              "path": ["data-sources"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Data Source by ID",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/data-sources/{{data_source_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["data-sources", "{{data_source_id}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Data Source by Provider",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/data-sources/provider/{{provider}}",
+              "host": ["{{base_url}}"],
+              "path": ["data-sources", "provider", "{{provider}}"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Time Series",
+      "item": [
+        {
+          "name": "Get Time Series Data",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/time-series/{{asset_id}}/{{data_source_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["time-series", "{{asset_id}}", "{{data_source_id}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Time Series Data with Date Range",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/time-series/{{asset_id}}/{{data_source_id}}?start_date={{start_date}}&end_date={{end_date}}",
+              "host": ["{{base_url}}"],
+              "path": ["time-series", "{{asset_id}}", "{{data_source_id}}"],
+              "query": [
+                {
+                  "key": "start_date",
+                  "value": "{{start_date}}"
+                },
+                {
+                  "key": "end_date",
+                  "value": "{{end_date}}"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Data Ingestion",
+      "item": [
+        {
+          "name": "Ingest Nasdaq Data",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"asset_id\": {{asset_id}},\n  \"data_source_id\": {{data_source_id}},\n  \"start_date\": \"{{start_date}}\",\n  \"end_date\": \"{{end_date}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/ingest/nasdaq",
+              "host": ["{{base_url}}"],
+              "path": ["ingest", "nasdaq"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Utility",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/",
+              "host": ["{{base_url}}"],
+              "path": [""]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "API Documentation",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/docs",
+              "host": ["{{base_url}}"],
+              "path": ["docs"]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          ""
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          ""
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000",
+      "type": "string"
+    },
+    {
+      "key": "asset_id",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "data_source_id",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "start_date",
+      "value": "2010-01-01",
+      "type": "string"
+    },
+    {
+      "key": "end_date",
+      "value": "2017-12-31",
+      "type": "string"
+    },
+    {
+      "key": "provider",
+      "value": "Nasdaq",
+      "type": "string"
+    }
+  ]
+}

@@ -96,6 +96,7 @@
                                             <th>Name</th>
                                             <th>Provider</th>
                                             <th>Description</th>
+                                            <th>Attributes</th>
                                             <th>Actions</th>
                                         </tr>
                                     </thead>
@@ -230,6 +231,9 @@
                     </div>
 
                     <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0"><i class="fas fa-chart-line me-2"></i>Primary Chart</h5>
+                        </div>
                         <div class="card-body">
                             <canvas id="timeseriesChart" style="display: none;"></canvas>
                             <div id="timeseries-placeholder" class="text-center text-muted py-5">
@@ -237,6 +241,115 @@
                                 <p>Select an asset and data source to view time series data</p>
                             </div>
                         </div>
+                    </div>
+
+                    <!-- Second Chart Section -->
+                    <div class="card mt-4" id="second-chart-section" style="display: none;">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0"><i class="fas fa-chart-area me-2"></i>Secondary Chart</h5>
+                            <button class="btn btn-sm btn-outline-secondary" id="hide-second-chart">
+                                <i class="fas fa-times"></i> Hide
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            <!-- Second Chart Metrics Selection -->
+                            <div class="card mb-3">
+                                <div class="card-body">
+                                    <h6 class="card-title">Secondary Chart Metrics</h6>
+                                    <div class="row g-2">
+                                        <div class="col-md-3">
+                                            <div class="form-check">
+                                                <input class="form-check-input metric-checkbox-2" type="checkbox" value="close" id="metric-close-2">
+                                                <label class="form-check-label" for="metric-close-2">Close</label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <div class="form-check">
+                                                <input class="form-check-input metric-checkbox-2" type="checkbox" value="open" id="metric-open-2">
+                                                <label class="form-check-label" for="metric-open-2">Open</label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <div class="form-check">
+                                                <input class="form-check-input metric-checkbox-2" type="checkbox" value="high" id="metric-high-2">
+                                                <label class="form-check-label" for="metric-high-2">High</label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <div class="form-check">
+                                                <input class="form-check-input metric-checkbox-2" type="checkbox" value="low" id="metric-low-2">
+                                                <label class="form-check-label" for="metric-low-2">Low</label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="row g-2 mt-2">
+                                        <div class="col-md-3">
+                                            <div class="form-check">
+                                                <input class="form-check-input metric-checkbox-2" type="checkbox" value="adj_close" id="metric-adj-close-2">
+                                                <label class="form-check-label" for="metric-adj-close-2">Adj Close</label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <div class="form-check">
+                                                <input class="form-check-input metric-checkbox-2" type="checkbox" value="adj_open" id="metric-adj-open-2">
+                                                <label class="form-check-label" for="metric-adj-open-2">Adj Open</label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <div class="form-check">
+                                                <input class="form-check-input metric-checkbox-2" type="checkbox" value="adj_high" id="metric-adj-high-2">
+                                                <label class="form-check-label" for="metric-adj-high-2">Adj High</label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <div class="form-check">
+                                                <input class="form-check-input metric-checkbox-2" type="checkbox" value="adj_low" id="metric-adj-low-2">
+                                                <label class="form-check-label" for="metric-adj-low-2">Adj Low</label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="row g-2 mt-2">
+                                        <div class="col-md-3">
+                                            <div class="form-check">
+                                                <input class="form-check-input metric-checkbox-2 volume-metric" type="checkbox" value="volume" id="metric-volume-2">
+                                                <label class="form-check-label" for="metric-volume-2">Volume</label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <div class="form-check">
+                                                <input class="form-check-input metric-checkbox-2 volume-metric" type="checkbox" value="adj_volume" id="metric-adj-volume-2">
+                                                <label class="form-check-label" for="metric-adj-volume-2">Adj Volume</label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <div class="form-check">
+                                                <input class="form-check-input metric-checkbox-2" type="checkbox" value="split_ratio" id="metric-split-ratio-2">
+                                                <label class="form-check-label" for="metric-split-ratio-2">Split Ratio</label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <button class="btn btn-outline-primary btn-sm" id="update-chart-2">
+                                                <i class="fas fa-sync-alt me-1"></i>Update Secondary Chart
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Second Chart Canvas -->
+                            <canvas id="timeseriesChart2" style="display: none;"></canvas>
+                            <div id="timeseries-placeholder-2" class="text-center text-muted py-5">
+                                <i class="fas fa-chart-area fa-3x mb-3"></i>
+                                <p>Select metrics and click "Update Secondary Chart" to display</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Show Second Chart Button -->
+                    <div class="text-center mt-3" id="show-second-chart-btn" style="display: none;">
+                        <button class="btn btn-outline-info" id="show-second-chart">
+                            <i class="fas fa-plus me-2"></i>Show Secondary Chart
+                        </button>
                     </div>
                 </div>
 
@@ -326,6 +439,34 @@
                             <label class="form-label" for="asset-exchange">Exchange</label>
                             <input type="text" class="form-control" id="asset-exchange" placeholder="e.g., NASDAQ">
                         </div>
+                        
+                        <!-- Enhanced Attributes Section -->
+                        <div class="mb-3">
+                            <label class="form-label">Additional Attributes</label>
+                            <div id="assetAttributesContainer" class="border rounded p-2 bg-light">
+                                <div class="asset-attribute-pair mb-2">
+                                    <div class="row align-items-center">
+                                        <div class="col-5">
+                                            <input type="text" class="form-control asset-attribute-key" placeholder="Key (e.g., sector, market_cap)">
+                                        </div>
+                                        <div class="col-5">
+                                            <input type="text" class="form-control asset-attribute-value" placeholder="Value">
+                                        </div>
+                                        <div class="col-2">
+                                            <button type="button" class="btn btn-outline-danger btn-sm" onclick="app.removeAssetAttribute(this)">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <button type="button" class="btn btn-outline-primary btn-sm mt-2" onclick="app.addAssetAttribute()">
+                                <i class="fas fa-plus"></i> Add Attribute
+                            </button>
+                            <small class="form-text text-muted d-block mt-1">
+                                Add key-value pairs for additional asset information (e.g., sector, market_cap, currency, region, etc.)
+                            </small>
+                        </div>
                     </form>
                 </div>
                 <div class="modal-footer">
@@ -361,8 +502,36 @@
                             </select>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label" for="datasource-description">Description *</label>
-                            <textarea class="form-control" id="datasource-description" rows="3" required></textarea>
+                            <label class="form-label" for="datasource-description">Description</label>
+                            <textarea class="form-control" id="datasource-description" rows="3"></textarea>
+                        </div>
+                        
+                        <!-- Enhanced Attributes Section -->
+                        <div class="mb-3">
+                            <label class="form-label">Attributes</label>
+                            <div id="attributesContainer" class="border rounded p-2 bg-light">
+                                <div class="attribute-pair mb-2">
+                                    <div class="row align-items-center">
+                                        <div class="col-5">
+                                            <input type="text" class="form-control attribute-key" placeholder="Key (e.g., version)">
+                                        </div>
+                                        <div class="col-5">
+                                            <input type="text" class="form-control attribute-value" placeholder="Value">
+                                        </div>
+                                        <div class="col-2">
+                                            <button type="button" class="btn btn-outline-danger btn-sm" onclick="app.removeAttribute(this)">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <button type="button" class="btn btn-outline-primary btn-sm mt-2" onclick="app.addAttribute()">
+                                <i class="fas fa-plus"></i> Add Attribute
+                            </button>
+                            <small class="form-text text-muted d-block mt-1">
+                                Add key-value pairs for additional data source configuration (e.g., version, region, format, etc.)
+                            </small>
                         </div>
                     </form>
                 </div>

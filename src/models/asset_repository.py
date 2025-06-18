@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from datetime import datetime
 from models.asset import Asset
 from connect_database import session
@@ -48,6 +48,36 @@ class AssetRepository:
         latest_row = None
         for row in rows:
             if not row.is_deleted and (latest_row is None or row.valid_from > latest_row.valid_from):
+                latest_row = row
+                
+        if latest_row:
+            return Asset(
+                id=latest_row.id,
+                name=latest_row.name,
+                description=latest_row.description,
+                system_date=latest_row.system_date,
+                is_deleted=latest_row.is_deleted,
+                valid_from=latest_row.valid_from,
+                valid_to=latest_row.valid_to,
+                attributes=latest_row.attributes
+            )
+        return None
+
+    def get_asset_by_id_including_deleted(self, asset_id: int) -> Optional[Asset]:
+        """Get asset details by ID, including deleted assets."""
+        query = """
+        SELECT id, name, description, system_date, is_deleted,
+               valid_from, valid_to, attributes 
+        FROM asset 
+        WHERE id = %s
+        ALLOW FILTERING
+        """
+        rows = self.session.execute(query, (asset_id,))
+        
+        # Get the most recent version (highest valid_from)
+        latest_row = None
+        for row in rows:
+            if latest_row is None or row.valid_from > latest_row.valid_from:
                 latest_row = row
                 
         if latest_row:
@@ -118,3 +148,81 @@ class AssetRepository:
         query = "SELECT MAX(id) FROM asset"
         row = self.session.execute(query).one()
         return (row[0] or 0) + 1
+
+    def get_active_asset_by_symbol(self, symbol: str) -> Optional[Asset]:
+        """Get an active (non-deleted) asset by symbol."""
+        query = """
+        SELECT id, name, description, system_date, is_deleted,
+               valid_from, valid_to, attributes 
+        FROM asset
+        WHERE is_deleted = false
+        ALLOW FILTERING
+        """
+        rows = self.session.execute(query)
+        
+        # Find the most recent active version with matching symbol
+        for row in rows:
+            if (row.attributes and 
+                row.attributes.get('symbol', '').upper() == symbol.upper()):
+                return Asset(
+                    id=row.id,
+                    name=row.name,
+                    description=row.description,
+                    system_date=row.system_date,
+                    is_deleted=row.is_deleted,
+                    valid_from=row.valid_from,
+                    valid_to=row.valid_to,
+                    attributes=row.attributes
+                )
+        return None
+
+    def get_deleted_asset_by_symbol(self, symbol: str) -> Optional[Asset]:
+        """Get a deleted asset by symbol for resurrection purposes."""
+        query = """
+        SELECT id, name, description, system_date, is_deleted,
+               valid_from, valid_to, attributes 
+        FROM asset
+        ALLOW FILTERING
+        """
+        rows = self.session.execute(query)
+        
+        # Find the most recent deleted version with matching symbol
+        latest_deleted = None
+        for row in rows:
+            if (row.is_deleted and 
+                row.attributes and 
+                row.attributes.get('symbol', '').upper() == symbol.upper()):
+                if latest_deleted is None or row.valid_from > latest_deleted.valid_from:
+                    latest_deleted = row
+                    
+        if latest_deleted:
+            return Asset(
+                id=latest_deleted.id,
+                name=latest_deleted.name,
+                description=latest_deleted.description,
+                system_date=latest_deleted.system_date,
+                is_deleted=latest_deleted.is_deleted,
+                valid_from=latest_deleted.valid_from,
+                valid_to=latest_deleted.valid_to,
+                attributes=latest_deleted.attributes
+            )
+        return None
+
+    def resurrect_asset(self, asset_id: int, updated_data: Dict[str, Any]) -> Asset:
+        """Resurrect a deleted asset by creating a new active version."""
+        now = datetime.now()
+        
+        # Create new active version
+        resurrected_asset = Asset(
+            id=asset_id,  # Keep the same ID to maintain time series links
+            name=updated_data.get('name', ''),
+            description=updated_data.get('description', ''),
+            system_date=now,
+            is_deleted=False,
+            valid_from=now,
+            valid_to=None,
+            attributes=updated_data.get('attributes', {})
+        )
+        self.save_asset(resurrected_asset)
+        logger.info(f"Successfully resurrected asset: {resurrected_asset.name} (ID: {asset_id})")
+        return resurrected_asset

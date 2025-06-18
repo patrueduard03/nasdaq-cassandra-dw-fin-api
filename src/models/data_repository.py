@@ -33,9 +33,10 @@ class DataRepository:
         
         query = """
         SELECT asset_id, data_source_id, business_date, system_date,
-               values_double, values_int, values_text
+               values_double, values_int, values_text,
+               is_deleted, valid_from, valid_to
         FROM data 
-        WHERE asset_id=%s AND data_source_id=%s
+        WHERE asset_id=%s AND data_source_id=%s AND is_deleted = false
         """
         params: List[Any] = [asset_id, data_source_id]
         
@@ -57,7 +58,10 @@ class DataRepository:
                 system_date=row.system_date,
                 values_double=row.values_double or {},
                 values_int=row.values_int or {},
-                values_text=row.values_text or {}
+                values_text=row.values_text or {},
+                is_deleted=row.is_deleted or False,
+                valid_from=row.valid_from,
+                valid_to=row.valid_to
             ) for row in rows
         ]
 
@@ -66,8 +70,9 @@ class DataRepository:
         query = """
         INSERT INTO data (
             asset_id, data_source_id, business_date, system_date,
-            values_double, values_int, values_text
-        ) VALUES (%s, %s, %s, %s, %s, %s, %s)
+            values_double, values_int, values_text,
+            is_deleted, valid_from, valid_to
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """
         # Convert date to string format for Cassandra
         business_date_str = data.business_date.strftime('%Y-%m-%d') if isinstance(data.business_date, date) else data.business_date
@@ -80,7 +85,10 @@ class DataRepository:
                 data.system_date,
                 data.values_double,
                 data.values_int,
-                data.values_text
+                data.values_text,
+                data.is_deleted,
+                data.valid_from,
+                data.valid_to
             ))
             logger.debug(f"Successfully saved data record for asset_id={data.asset_id}, date={business_date_str}")
         except Exception as e:

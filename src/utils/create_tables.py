@@ -34,7 +34,10 @@ CREATE TABLE IF NOT EXISTS data_source (
     description text,
     system_date timestamp,
     provider text,
-    attributes map<text, text>
+    attributes map<text, text>,
+    is_deleted boolean,
+    valid_from timestamp,
+    valid_to timestamp
 );
 '''
 
@@ -47,6 +50,9 @@ CREATE TABLE IF NOT EXISTS data (
     values_double map<text, double>,
     values_int map<text, int>,
     values_text map<text, text>,
+    is_deleted boolean,
+    valid_from timestamp,
+    valid_to timestamp,
     PRIMARY KEY ((asset_id, data_source_id), business_date, system_date)
 ) WITH CLUSTERING ORDER BY (business_date DESC, system_date DESC);
 '''

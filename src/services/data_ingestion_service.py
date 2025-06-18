@@ -42,13 +42,17 @@ class DataIngestionService:
             
         # Create new data source
         data_source_id = self.data_source_repository.get_next_id()
+        now = datetime.now()
         new_data_source = DataSource(
             id=data_source_id,
             name=f"{provider} Data Source",
             description=f"Data source for {provider}",
-            system_date=datetime.now(),
+            system_date=now,
             provider=provider,
-            attributes={}
+            attributes={},
+            is_deleted=False,
+            valid_from=now,
+            valid_to=None
         )
         self.data_source_repository.save_data_source(new_data_source)
         return data_source_id
@@ -152,11 +156,12 @@ class DataIngestionService:
                 for index, row in df.iterrows():
                     try:
                         business_date = self._ensure_date(row['date'])
+                        now = datetime.now()
                         data = Data(
                             asset_id=asset_id,
                             data_source_id=data_source_id,
                             business_date=business_date,
-                            system_date=datetime.now(),
+                            system_date=now,
                             values_double={
                                 'open': self._safe_float(row['open']),
                                 'high': self._safe_float(row['high']),
@@ -171,7 +176,10 @@ class DataIngestionService:
                                 'adj_volume': self._safe_float(row['adj_volume'])
                             },
                             values_int={},
-                            values_text={}
+                            values_text={},
+                            is_deleted=False,
+                            valid_from=now,
+                            valid_to=None
                         )
                         self.data_repository.save(data)
                         saved_count += 1

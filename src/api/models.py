@@ -22,9 +22,9 @@ class AssetResponse(AssetBase):
 
 class DataSourceBase(BaseModel):
     name: str
-    description: str
+    description: Optional[str] = None
     provider: str
-    attributes: Dict[str, Any]
+    attributes: Dict[str, Any] = {}
 
 class DataSourceCreate(DataSourceBase):
     pass
@@ -32,6 +32,9 @@ class DataSourceCreate(DataSourceBase):
 class DataSourceResponse(DataSourceBase):
     id: int
     system_date: datetime
+    is_deleted: bool
+    valid_from: datetime
+    valid_to: Optional[datetime]
 
     class Config:
         from_attributes = True
@@ -44,6 +47,9 @@ class TimeSeriesDataResponse(BaseModel):
     values_double: Dict[str, float]
     values_int: Dict[str, int]
     values_text: Dict[str, str]
+    is_deleted: bool
+    valid_from: datetime
+    valid_to: Optional[datetime]
 
     class Config:
         from_attributes = True

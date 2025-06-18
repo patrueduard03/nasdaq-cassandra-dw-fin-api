@@ -16,20 +16,21 @@ session.execute(f"USE {KEYSPACE}")
 # CQL statements for table creation
 CREATE_ASSET = '''
 CREATE TABLE IF NOT EXISTS asset (
-    id int PRIMARY KEY,
+    id int,
     name text,
     description text,
     system_date timestamp,
     is_deleted boolean,
     valid_from timestamp,
     valid_to timestamp,
-    attributes map<text, text>
-);
+    attributes map<text, text>,
+    PRIMARY KEY (id, valid_from)
+) WITH CLUSTERING ORDER BY (valid_from DESC);
 '''
 
 CREATE_DATA_SOURCE = '''
 CREATE TABLE IF NOT EXISTS data_source (
-    id int PRIMARY KEY,
+    id int,
     name text,
     description text,
     system_date timestamp,
@@ -37,8 +38,9 @@ CREATE TABLE IF NOT EXISTS data_source (
     attributes map<text, text>,
     is_deleted boolean,
     valid_from timestamp,
-    valid_to timestamp
-);
+    valid_to timestamp,
+    PRIMARY KEY (id, valid_from)
+) WITH CLUSTERING ORDER BY (valid_from DESC);
 '''
 
 CREATE_DATA = '''

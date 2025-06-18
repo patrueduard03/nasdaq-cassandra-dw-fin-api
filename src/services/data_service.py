@@ -11,6 +11,9 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# Temporal database constants
+FAR_FUTURE_DATE = datetime(9999, 12, 31, 23, 59, 59)  # For current versions
+
 class DataService:
     """High-level service for managing financial data"""
     
@@ -23,6 +26,10 @@ class DataService:
         """Get all financial assets"""
         return self.asset_repo.get_all_assets()
 
+    def get_all_assets_including_deleted(self) -> List[Asset]:
+        """Get all financial assets including deleted ones (admin only)"""
+        return self.asset_repo.get_all_assets_including_deleted()
+
     def get_asset_by_id(self, asset_id: int) -> Optional[Asset]:
         """Get asset by ID"""
         return self.asset_repo.get_asset_by_id(asset_id)
@@ -30,6 +37,10 @@ class DataService:
     def get_all_data_sources(self) -> List[DataSource]:
         """Get all data sources"""
         return self.data_source_repo.get_all_data_sources()
+
+    def get_all_data_sources_including_deleted(self) -> List[DataSource]:
+        """Get all data sources including deleted ones (admin only)"""
+        return self.data_source_repo.get_all_data_sources_including_deleted()
 
     def get_data_source_by_id(self, data_source_id: int) -> Optional[DataSource]:
         """Get data source by ID"""
@@ -55,7 +66,7 @@ class DataService:
             attributes=attributes,
             is_deleted=False,
             valid_from=now,
-            valid_to=None
+            valid_to=FAR_FUTURE_DATE  # Current version uses far-future date
         )
         self.data_source_repo.save_data_source(new_data_source)
         logger.info(f"Created new data source: {new_data_source.name} (Provider: {new_data_source.provider})")
@@ -103,7 +114,7 @@ class DataService:
             system_date=now,
             is_deleted=False,
             valid_from=now,
-            valid_to=None,
+            valid_to=FAR_FUTURE_DATE,  # Current version uses far-future date
             attributes=asset_data.get('attributes', {})
         )
         self.asset_repo.save_asset(asset)

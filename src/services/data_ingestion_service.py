@@ -18,6 +18,9 @@ load_dotenv()
 
 logger = logging.getLogger("data_ingestion")
 
+# Temporal database constants
+FAR_FUTURE_DATE = datetime(9999, 12, 31, 23, 59, 59)  # For current versions
+
 class DataIngestionService:
     """Service for ingesting data from external sources"""
     
@@ -52,7 +55,7 @@ class DataIngestionService:
             attributes={},
             is_deleted=False,
             valid_from=now,
-            valid_to=None
+            valid_to=FAR_FUTURE_DATE  # Current version uses far-future date
         )
         self.data_source_repository.save_data_source(new_data_source)
         return data_source_id
@@ -179,7 +182,7 @@ class DataIngestionService:
                             values_text={},
                             is_deleted=False,
                             valid_from=now,
-                            valid_to=None
+                            valid_to=FAR_FUTURE_DATE  # Current version uses far-future date
                         )
                         self.data_repository.save(data)
                         saved_count += 1

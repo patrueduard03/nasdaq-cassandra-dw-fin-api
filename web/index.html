@@ -51,7 +51,15 @@
                 <!-- Assets Section -->
                 <div class="content-section" id="assets-content">
                     <div class="d-flex justify-content-between align-items-center mb-3">
-                        <h3><i class="fas fa-coins me-2"></i>Assets Management</h3>
+                        <div>
+                            <h3><i class="fas fa-coins me-2"></i>Assets Management</h3>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="assets-admin-mode" onchange="toggleAssetsAdminMode()">
+                                <label class="form-check-label" for="assets-admin-mode">
+                                    <small><i class="fas fa-history me-1"></i>Show Temporal History (Admin)</small>
+                                </label>
+                            </div>
+                        </div>
                         <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createAssetModal">
                             <i class="fas fa-plus me-2"></i>Create Asset
                         </button>
@@ -66,6 +74,9 @@
                                             <th>Name</th>
                                             <th>Description</th>
                                             <th>Symbol</th>
+                                            <th class="admin-only d-none">Status</th>
+                                            <th class="admin-only d-none">Valid From</th>
+                                            <th class="admin-only d-none">Valid To</th>
                                             <th>Actions</th>
                                         </tr>
                                     </thead>
@@ -81,7 +92,15 @@
                 <!-- Data Sources Section -->
                 <div class="content-section d-none" id="datasources-content">
                     <div class="d-flex justify-content-between align-items-center mb-3">
-                        <h3><i class="fas fa-database me-2"></i>Data Sources Management</h3>
+                        <div>
+                            <h3><i class="fas fa-database me-2"></i>Data Sources Management</h3>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="datasources-admin-mode" onchange="toggleDataSourcesAdminMode()">
+                                <label class="form-check-label" for="datasources-admin-mode">
+                                    <small><i class="fas fa-history me-1"></i>Show Temporal History (Admin)</small>
+                                </label>
+                            </div>
+                        </div>
                         <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createDataSourceModal">
                             <i class="fas fa-plus me-2"></i>Create Data Source
                         </button>
@@ -97,6 +116,9 @@
                                             <th>Provider</th>
                                             <th>Description</th>
                                             <th>Attributes</th>
+                                            <th class="admin-only d-none">Status</th>
+                                            <th class="admin-only d-none">Valid From</th>
+                                            <th class="admin-only d-none">Valid To</th>
                                             <th>Actions</th>
                                         </tr>
                                     </thead>
@@ -538,6 +560,121 @@
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                     <button type="submit" class="btn btn-primary" form="create-datasource-form">Create Data Source</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Asset Modal -->
+    <div class="modal fade" id="editAssetModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Edit Asset</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="edit-asset-form">
+                        <input type="hidden" id="edit-asset-id">
+                        <div class="mb-3">
+                            <label class="form-label" for="edit-asset-name">Name *</label>
+                            <input type="text" class="form-control" id="edit-asset-name" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label" for="edit-asset-description">Description *</label>
+                            <textarea class="form-control" id="edit-asset-description" rows="3" required></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label" for="edit-asset-symbol">Symbol *</label>
+                            <input type="text" class="form-control" id="edit-asset-symbol" placeholder="e.g., AAPL" required>
+                            <small class="form-text text-muted">Stock ticker symbol for Nasdaq data ingestion</small>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label" for="edit-asset-type">Type</label>
+                            <select class="form-select" id="edit-asset-type">
+                                <option value="equity">Equity</option>
+                                <option value="bond">Bond</option>
+                                <option value="currency">Currency</option>
+                                <option value="commodity">Commodity</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label" for="edit-asset-exchange">Exchange</label>
+                            <input type="text" class="form-control" id="edit-asset-exchange" placeholder="e.g., NASDAQ">
+                        </div>
+                        
+                        <!-- Enhanced Attributes Section -->
+                        <div class="mb-3">
+                            <label class="form-label">Additional Attributes</label>
+                            <div id="editAssetAttributesContainer" class="border rounded p-2 bg-light">
+                                <!-- Attributes will be populated here -->
+                            </div>
+                            <button type="button" class="btn btn-outline-primary btn-sm mt-2" onclick="app.addEditAssetAttribute()">
+                                <i class="fas fa-plus"></i> Add Attribute
+                            </button>
+                            <small class="form-text text-muted d-block mt-1">
+                                Add key-value pairs for additional asset information (e.g., sector, market_cap, currency, region, etc.)
+                            </small>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary" form="edit-asset-form">Update Asset</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Data Source Modal -->
+    <div class="modal fade" id="editDataSourceModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Edit Data Source</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="edit-datasource-form">
+                        <input type="hidden" id="edit-datasource-id">
+                        <div class="mb-3">
+                            <label class="form-label" for="edit-datasource-name">Name *</label>
+                            <input type="text" class="form-control" id="edit-datasource-name" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label" for="edit-datasource-provider">Provider *</label>
+                            <select class="form-select" id="edit-datasource-provider" required>
+                                <option value="">Select Provider</option>
+                                <option value="Nasdaq Data Link">Nasdaq Data Link</option>
+                                <option value="Bloomberg">Bloomberg</option>
+                                <option value="Reuters">Reuters</option>
+                                <option value="Yahoo Finance">Yahoo Finance</option>
+                                <option value="Alpha Vantage">Alpha Vantage</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label" for="edit-datasource-description">Description</label>
+                            <textarea class="form-control" id="edit-datasource-description" rows="3"></textarea>
+                        </div>
+                        
+                        <!-- Enhanced Attributes Section -->
+                        <div class="mb-3">
+                            <label class="form-label">Attributes</label>
+                            <div id="editDataSourceAttributesContainer" class="border rounded p-2 bg-light">
+                                <!-- Attributes will be populated here -->
+                            </div>
+                            <button type="button" class="btn btn-outline-primary btn-sm mt-2" onclick="app.addEditDataSourceAttribute()">
+                                <i class="fas fa-plus"></i> Add Attribute
+                            </button>
+                            <small class="form-text text-muted d-block mt-1">
+                                Add key-value pairs for additional data source configuration (e.g., version, region, format, etc.)
+                            </small>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary" form="edit-datasource-form">Update Data Source</button>
                 </div>
             </div>
         </div>

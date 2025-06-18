@@ -8,6 +8,7 @@ from services.data_service import DataService
 # Constants
 ERROR_ASSET_NOT_FOUND = "Asset not found"
 ERROR_ASSET_CREATION_FAILED = "Failed to create asset"
+ERROR_ASSET_UPDATE_FAILED = "Failed to update asset"
 ERROR_ASSET_DELETION_FAILED = "Failed to delete asset"
 ERROR_ASSET_RESURRECTION_FAILED = "Failed to resurrect asset"
 
@@ -21,6 +22,14 @@ async def get_all_assets():
     logger.info("Retrieving all assets")
     assets = data_service.get_all_assets()
     logger.info(f"Retrieved {len(assets)} assets")
+    return assets
+
+@router.get("/admin/all", response_model=List[AssetResponse])
+async def get_all_assets_including_deleted():
+    """Get all financial assets including deleted ones (admin only)"""
+    logger.info("Retrieving all assets including deleted (admin mode)")
+    assets = data_service.get_all_assets_including_deleted()
+    logger.info(f"Retrieved {len(assets)} assets (including deleted)")
     return assets
 
 @router.get("/{asset_id}", response_model=AssetResponse)
@@ -71,6 +80,29 @@ async def resurrect_asset(asset_id: int, asset: AssetCreate):
     except Exception as e:
         logger.error(f"Failed to resurrect asset ID {asset_id}: {str(e)}")
         raise HTTPException(status_code=500, detail=f"{ERROR_ASSET_RESURRECTION_FAILED}: {str(e)}")
+
+@router.put("/{asset_id}", response_model=AssetResponse)
+async def update_asset(asset_id: int, asset: AssetCreate):
+    """Update an asset by creating a new version (temporal database pattern)"""
+    logger.info(f"Attempting to update asset with ID: {asset_id}")
+    
+    # Check if asset exists and is not deleted
+    existing_asset = data_service.get_asset_by_id(asset_id)
+    if not existing_asset:
+        logger.warning(f"Asset not found for update: ID {asset_id}")
+        raise HTTPException(status_code=404, detail=ERROR_ASSET_NOT_FOUND)
+    
+    if existing_asset.is_deleted:
+        logger.warning(f"Cannot update - asset is deleted: ID {asset_id}")
+        raise HTTPException(status_code=409, detail="Asset is deleted and cannot be updated")
+    
+    try:
+        updated_asset = data_service.asset_repo.update_asset(asset_id, asset.dict())
+        logger.info(f"Successfully updated asset: {updated_asset.name} (ID: {asset_id})")
+        return updated_asset
+    except Exception as e:
+        logger.error(f"Failed to update asset ID {asset_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"{ERROR_ASSET_UPDATE_FAILED}: {str(e)}")
 
 @router.delete("/{asset_id}")
 async def delete_asset(asset_id: int):

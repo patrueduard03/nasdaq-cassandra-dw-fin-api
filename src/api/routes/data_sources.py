@@ -8,6 +8,7 @@ from services.data_service import DataService
 # Constants
 ERROR_DATA_SOURCE_NOT_FOUND = "Data source not found"
 ERROR_DATA_SOURCE_CREATION_FAILED = "Failed to create data source"
+ERROR_DATA_SOURCE_UPDATE_FAILED = "Failed to update data source"
 ERROR_DATA_SOURCE_DELETION_FAILED = "Failed to delete data source"
 
 router = APIRouter(prefix="/data-sources", tags=["data-sources"])
@@ -34,6 +35,14 @@ async def get_all_data_sources():
     logger.info(f"Retrieved {len(data_sources)} data sources")
     return data_sources
 
+@router.get("/admin/all", response_model=List[DataSourceResponse])
+async def get_all_data_sources_including_deleted():
+    """Get all data sources including deleted ones (admin only)"""
+    logger.info("Retrieving all data sources including deleted (admin mode)")
+    data_sources = data_service.get_all_data_sources_including_deleted()
+    logger.info(f"Retrieved {len(data_sources)} data sources (including deleted)")
+    return data_sources
+
 @router.get("/{data_source_id}", response_model=DataSourceResponse)
 async def get_data_source(data_source_id: int):
     """Get data source details"""
@@ -55,6 +64,29 @@ async def get_data_source_by_provider(provider: str):
         raise HTTPException(status_code=404, detail=ERROR_DATA_SOURCE_NOT_FOUND)
     logger.info(f"Retrieved data source: {data_source.name} for provider {provider}")
     return data_source
+
+@router.put("/{data_source_id}", response_model=DataSourceResponse)
+async def update_data_source(data_source_id: int, data_source: DataSourceCreate):
+    """Update a data source by creating a new version (temporal database pattern)"""
+    logger.info(f"Attempting to update data source with ID: {data_source_id}")
+    
+    # Check if data source exists and is not deleted
+    existing_data_source = data_service.get_data_source_by_id(data_source_id)
+    if not existing_data_source:
+        logger.warning(f"Data source not found for update: ID {data_source_id}")
+        raise HTTPException(status_code=404, detail=ERROR_DATA_SOURCE_NOT_FOUND)
+    
+    if existing_data_source.is_deleted:
+        logger.warning(f"Cannot update - data source is deleted: ID {data_source_id}")
+        raise HTTPException(status_code=409, detail="Data source is deleted and cannot be updated")
+    
+    try:
+        updated_data_source = data_service.data_source_repo.update_data_source(data_source_id, data_source.dict())
+        logger.info(f"Successfully updated data source: {updated_data_source.name} (ID: {data_source_id})")
+        return updated_data_source
+    except Exception as e:
+        logger.error(f"Failed to update data source ID {data_source_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"{ERROR_DATA_SOURCE_UPDATE_FAILED}: {str(e)}")
 
 @router.delete("/{data_source_id}")
 async def delete_data_source(data_source_id: int):

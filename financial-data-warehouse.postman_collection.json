@@ -1,8 +1,8 @@
 {
   "info": {
     "name": "Financial Data Warehouse API",
-    "description": "Complete API collection for the Financial Data Warehouse system",
-    "version": "1.0.0",
+    "description": "Complete API collection for the Financial Data Warehouse system with full temporal database support, including CRUD operations, admin endpoints, and data ingestion capabilities.",
+    "version": "2.0.0",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -21,7 +21,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"AAPL\",\n  \"description\": \"Apple Inc. Common Stock\",\n  \"attributes\": {\n    \"type\": \"equity\",\n    \"exchange\": \"NASDAQ\",\n    \"sector\": \"Technology\",\n    \"market_cap\": \"large\"\n  }\n}"
+              "raw": "{\n  \"name\": \"Apple Inc.\",\n  \"description\": \"Apple Inc. Common Stock - Technology sector leader\",\n  \"attributes\": {\n    \"symbol\": \"AAPL\",\n    \"type\": \"equity\",\n    \"exchange\": \"NASDAQ\",\n    \"sector\": \"Technology\",\n    \"market_cap\": \"large\",\n    \"currency\": \"USD\",\n    \"country\": \"US\"\n  }\n}"
             },
             "url": {
               "raw": "{{base_url}}/assets",
@@ -29,10 +29,36 @@
               "path": ["assets"]
             }
           },
-          "response": []
+          "response": [
+            {
+              "name": "Asset Created Successfully",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Apple Inc.\",\n  \"description\": \"Apple Inc. Common Stock\",\n  \"attributes\": {\n    \"symbol\": \"AAPL\",\n    \"type\": \"equity\",\n    \"exchange\": \"NASDAQ\",\n    \"sector\": \"Technology\"\n  }\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/assets",
+                  "host": ["{{base_url}}"],
+                  "path": ["assets"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"id\": 1,\n  \"name\": \"Apple Inc.\",\n  \"description\": \"Apple Inc. Common Stock\",\n  \"valid_from\": \"2025-01-15T10:00:00Z\",\n  \"valid_to\": \"9999-12-31T23:59:59Z\",\n  \"system_date\": \"2025-01-15T10:00:00Z\",\n  \"is_deleted\": false,\n  \"attributes\": {\n    \"symbol\": \"AAPL\",\n    \"type\": \"equity\",\n    \"exchange\": \"NASDAQ\",\n    \"sector\": \"Technology\"\n  }\n}"
+            }
+          ]
         },
         {
-          "name": "Get All Assets",
+          "name": "Get All Assets (Active Only)",
           "request": {
             "method": "GET",
             "url": {
@@ -41,7 +67,23 @@
               "path": ["assets"]
             }
           },
-          "response": []
+          "response": [
+            {
+              "name": "Active Assets List",
+              "originalRequest": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{base_url}}/assets",
+                  "host": ["{{base_url}}"],
+                  "path": ["assets"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "[\n  {\n    \"id\": 1,\n    \"name\": \"Apple Inc.\",\n    \"description\": \"Apple Inc. Common Stock\",\n    \"valid_from\": \"2025-01-15T10:00:00Z\",\n    \"valid_to\": \"9999-12-31T23:59:59Z\",\n    \"system_date\": \"2025-01-15T10:00:00Z\",\n    \"is_deleted\": false,\n    \"attributes\": {\n      \"symbol\": \"AAPL\",\n      \"type\": \"equity\",\n      \"exchange\": \"NASDAQ\",\n      \"sector\": \"Technology\"\n    }\n  }\n]"
+            }
+          ]
         },
         {
           "name": "Get Asset by ID",
@@ -56,7 +98,55 @@
           "response": []
         },
         {
-          "name": "Delete Asset",
+          "name": "Update Asset (Creates New Version)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Apple Inc. (Updated)\",\n  \"description\": \"Apple Inc. Common Stock - Updated with new market information\",\n  \"attributes\": {\n    \"symbol\": \"AAPL\",\n    \"type\": \"equity\",\n    \"exchange\": \"NASDAQ\",\n    \"sector\": \"Technology\",\n    \"market_cap\": \"large\",\n    \"currency\": \"USD\",\n    \"country\": \"US\",\n    \"last_updated\": \"2025-01-15\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/assets/{{asset_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["assets", "{{asset_id}}"]
+            }
+          },
+          "response": [
+            {
+              "name": "Asset Updated Successfully (New Version Created)",
+              "originalRequest": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Apple Inc. (Updated)\",\n  \"description\": \"Apple Inc. Common Stock (Updated)\",\n  \"attributes\": {\n    \"symbol\": \"AAPL\",\n    \"type\": \"equity\",\n    \"exchange\": \"NASDAQ\",\n    \"sector\": \"Technology\",\n    \"market_cap\": \"large\",\n    \"currency\": \"USD\"\n  }\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/assets/1",
+                  "host": ["{{base_url}}"],
+                  "path": ["assets", "1"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"id\": 1,\n  \"name\": \"Apple Inc. (Updated)\",\n  \"description\": \"Apple Inc. Common Stock (Updated)\",\n  \"valid_from\": \"2025-01-15T14:30:00Z\",\n  \"valid_to\": \"9999-12-31T23:59:59Z\",\n  \"system_date\": \"2025-01-15T14:30:00Z\",\n  \"is_deleted\": false,\n  \"attributes\": {\n    \"symbol\": \"AAPL\",\n    \"type\": \"equity\",\n    \"exchange\": \"NASDAQ\",\n    \"sector\": \"Technology\",\n    \"market_cap\": \"large\",\n    \"currency\": \"USD\"\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Delete Asset (Soft Delete - Creates Deletion Marker)",
           "request": {
             "method": "DELETE",
             "url": {
@@ -65,7 +155,99 @@
               "path": ["assets", "{{asset_id}}"]
             }
           },
-          "response": []
+          "response": [
+            {
+              "name": "Asset Soft Deleted Successfully",
+              "originalRequest": {
+                "method": "DELETE",
+                "url": {
+                  "raw": "{{base_url}}/assets/1",
+                  "host": ["{{base_url}}"],
+                  "path": ["assets", "1"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"message\": \"Asset marked as deleted\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Resurrect Asset (Restore Deleted Asset)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Apple Inc. (Resurrected)\",\n  \"description\": \"Apple Inc. Common Stock - Restored from deletion with updated information\",\n  \"attributes\": {\n    \"symbol\": \"AAPL\",\n    \"type\": \"equity\",\n    \"exchange\": \"NASDAQ\",\n    \"sector\": \"Technology\",\n    \"market_cap\": \"large\",\n    \"status\": \"resurrected\",\n    \"restoration_date\": \"2025-01-15\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/assets/{{asset_id}}/resurrect",
+              "host": ["{{base_url}}"],
+              "path": ["assets", "{{asset_id}}", "resurrect"]
+            }
+          },
+          "response": [
+            {
+              "name": "Asset Resurrected Successfully",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Apple Inc. (Resurrected)\",\n  \"description\": \"Apple Inc. Common Stock (Resurrected)\",\n  \"attributes\": {\n    \"symbol\": \"AAPL\",\n    \"type\": \"equity\",\n    \"exchange\": \"NASDAQ\",\n    \"sector\": \"Technology\",\n    \"status\": \"resurrected\"\n  }\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/assets/1/resurrect",
+                  "host": ["{{base_url}}"],
+                  "path": ["assets", "1", "resurrect"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"id\": 1,\n  \"name\": \"Apple Inc. (Resurrected)\",\n  \"description\": \"Apple Inc. Common Stock (Resurrected)\",\n  \"valid_from\": \"2025-01-15T16:00:00Z\",\n  \"valid_to\": \"9999-12-31T23:59:59Z\",\n  \"system_date\": \"2025-01-15T16:00:00Z\",\n  \"is_deleted\": false,\n  \"attributes\": {\n    \"symbol\": \"AAPL\",\n    \"type\": \"equity\",\n    \"exchange\": \"NASDAQ\",\n    \"sector\": \"Technology\",\n    \"status\": \"resurrected\"\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Get All Assets (Admin - All Versions & Deleted)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/assets/admin/all",
+              "host": ["{{base_url}}"],
+              "path": ["assets", "admin", "all"]
+            }
+          },
+          "response": [
+            {
+              "name": "All Asset Versions (Including Deleted)",
+              "originalRequest": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{base_url}}/assets/admin/all",
+                  "host": ["{{base_url}}"],
+                  "path": ["assets", "admin", "all"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "[\n  {\n    \"id\": 1,\n    \"name\": \"Apple Inc. (Current)\",\n    \"description\": \"Apple Inc. Common Stock (Current Version)\",\n    \"valid_from\": \"2025-01-15T16:00:00Z\",\n    \"valid_to\": \"9999-12-31T23:59:59Z\",\n    \"system_date\": \"2025-01-15T16:00:00Z\",\n    \"is_deleted\": false,\n    \"attributes\": {\n      \"symbol\": \"AAPL\",\n      \"type\": \"equity\",\n      \"exchange\": \"NASDAQ\",\n      \"sector\": \"Technology\"\n    }\n  },\n  {\n    \"id\": 1,\n    \"name\": \"Apple Inc. (Deleted)\",\n    \"description\": \"Apple Inc. Common Stock\",\n    \"valid_from\": \"2025-01-15T15:00:00Z\",\n    \"valid_to\": \"2025-01-15T16:00:00Z\",\n    \"system_date\": \"2025-01-15T15:00:00Z\",\n    \"is_deleted\": true,\n    \"attributes\": {\n      \"symbol\": \"AAPL\",\n      \"type\": \"equity\",\n      \"exchange\": \"NASDAQ\",\n      \"sector\": \"Technology\"\n    }\n  },\n  {\n    \"id\": 1,\n    \"name\": \"Apple Inc. (Original)\",\n    \"description\": \"Apple Inc. Common Stock\",\n    \"valid_from\": \"2025-01-15T10:00:00Z\",\n    \"valid_to\": \"2025-01-15T14:30:00Z\",\n    \"system_date\": \"2025-01-15T10:00:00Z\",\n    \"is_deleted\": false,\n    \"attributes\": {\n      \"symbol\": \"AAPL\",\n      \"type\": \"equity\",\n      \"exchange\": \"NASDAQ\",\n      \"sector\": \"Technology\"\n    }\n  }\n]"
+            }
+          ]
         }
       ]
     },
@@ -119,6 +301,138 @@
           "response": []
         },
         {
+          "name": "Update Data Source",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Nasdaq Data Link (Updated)\",\n  \"description\": \"Historical and real-time financial market data (Updated)\",\n  \"provider\": \"Nasdaq\",\n  \"attributes\": {\n    \"version\": \"2.0\",\n    \"rate_limit\": \"100000_requests_per_day\",\n    \"data_types\": [\"OHLCV\", \"fundamentals\", \"options\"],\n    \"update_frequency\": \"real-time\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/data-sources/{{data_source_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["data-sources", "{{data_source_id}}"]
+            }
+          },
+          "response": [
+            {
+              "name": "Data Source Updated (New Version Created)",
+              "originalRequest": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Nasdaq Data Link (Updated)\",\n  \"description\": \"Historical and real-time financial market data (Updated)\",\n  \"provider\": \"Nasdaq\",\n  \"attributes\": {\n    \"version\": \"2.0\",\n    \"rate_limit\": \"100000_requests_per_day\",\n    \"data_types\": [\"OHLCV\", \"fundamentals\", \"options\"],\n    \"update_frequency\": \"real-time\"\n  }\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/data-sources/1",
+                  "host": ["{{base_url}}"],
+                  "path": ["data-sources", "1"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"id\": 1,\n  \"name\": \"Nasdaq Data Link (Updated)\",\n  \"description\": \"Historical and real-time financial market data (Updated)\",\n  \"provider\": \"Nasdaq\",\n  \"attributes\": {\n    \"version\": \"2.0\",\n    \"rate_limit\": \"100000_requests_per_day\",\n    \"data_types\": [\"OHLCV\", \"fundamentals\", \"options\"],\n    \"update_frequency\": \"real-time\"\n  },\n  \"version\": 2,\n  \"created_at\": \"2024-01-15T10:30:00.123456+00:00\",\n  \"updated_at\": \"2024-01-15T14:45:00.654321+00:00\",\n  \"deleted_at\": null,\n  \"is_deleted\": false\n}"
+            }
+          ]
+        },
+        {
+          "name": "Delete Data Source (Soft Delete - Creates Deletion Marker)",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{base_url}}/data-sources/{{data_source_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["data-sources", "{{data_source_id}}"]
+            }
+          },
+          "response": [
+            {
+              "name": "Data Source Soft Deleted Successfully",
+              "originalRequest": {
+                "method": "DELETE",
+                "url": {
+                  "raw": "{{base_url}}/data-sources/1",
+                  "host": ["{{base_url}}"],
+                  "path": ["data-sources", "1"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"message\": \"Data source marked as deleted\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Resurrect Data Source (Restore Deleted)",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/data-sources/{{data_source_id}}/resurrect",
+              "host": ["{{base_url}}"],
+              "path": ["data-sources", "{{data_source_id}}", "resurrect"]
+            }
+          },
+          "response": [
+            {
+              "name": "Data Source Resurrected Successfully",
+              "originalRequest": {
+                "method": "POST",
+                "url": {
+                  "raw": "{{base_url}}/data-sources/2/resurrect",
+                  "host": ["{{base_url}}"],
+                  "path": ["data-sources", "2", "resurrect"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"id\": 2,\n  \"name\": \"Alpha Vantage\",\n  \"description\": \"Free APIs for realtime and historical data\",\n  \"provider\": \"Alpha Vantage\",\n  \"attributes\": {\n    \"api_key_required\": true,\n    \"rate_limit\": \"5_requests_per_minute\",\n    \"data_types\": [\"OHLCV\", \"technical_indicators\"]\n  },\n  \"version\": 2,\n  \"created_at\": \"2024-01-14T12:00:00.000000+00:00\",\n  \"updated_at\": \"2024-01-15T16:45:00.123456+00:00\",\n  \"deleted_at\": null,\n  \"is_deleted\": false\n}"
+            }
+          ]
+        },
+        {
+          "name": "Get All Data Sources (Admin - All Versions)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/data-sources/admin/all",
+              "host": ["{{base_url}}"],
+              "path": ["data-sources", "admin", "all"]
+            }
+          },
+          "response": [
+            {
+              "name": "All Data Sources with All Versions",
+              "originalRequest": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{base_url}}/data-sources/admin/all",
+                  "host": ["{{base_url}}"],
+                  "path": ["data-sources", "admin", "all"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "[\n  {\n    \"id\": 1,\n    \"name\": \"Nasdaq Data Link\",\n    \"description\": \"Historical and real-time financial market data\",\n    \"provider\": \"Nasdaq\",\n    \"attributes\": {\n      \"api_key_required\": true,\n      \"rate_limit\": \"50000_requests_per_day\",\n      \"data_types\": [\"OHLCV\", \"fundamentals\"]\n    },\n    \"version\": 1,\n    \"created_at\": \"2024-01-15T10:00:00.123456+00:00\",\n    \"updated_at\": \"2024-01-15T10:00:00.123456+00:00\",\n    \"deleted_at\": null,\n    \"is_deleted\": false\n  },\n  {\n    \"id\": 1,\n    \"name\": \"Nasdaq Data Link (Updated)\",\n    \"description\": \"Historical and real-time financial market data (Updated)\",\n    \"provider\": \"Nasdaq\",\n    \"attributes\": {\n      \"version\": \"2.0\",\n      \"rate_limit\": \"100000_requests_per_day\",\n      \"data_types\": [\"OHLCV\", \"fundamentals\", \"options\"],\n      \"update_frequency\": \"real-time\"\n    },\n    \"version\": 2,\n    \"created_at\": \"2024-01-15T10:00:00.123456+00:00\",\n    \"updated_at\": \"2024-01-15T14:45:00.654321+00:00\",\n    \"deleted_at\": null,\n    \"is_deleted\": false\n  },\n  {\n    \"id\": 2,\n    \"name\": \"Alpha Vantage\",\n    \"description\": \"Free APIs for realtime and historical data\",\n    \"provider\": \"Alpha Vantage\",\n    \"attributes\": {\n      \"api_key_required\": true,\n      \"rate_limit\": \"5_requests_per_minute\",\n      \"data_types\": [\"OHLCV\", \"technical_indicators\"]\n    },\n    \"version\": 1,\n    \"created_at\": \"2024-01-14T12:00:00.000000+00:00\",\n    \"updated_at\": \"2024-01-14T12:00:00.000000+00:00\",\n    \"deleted_at\": \"2024-01-15T16:30:00.789012+00:00\",\n    \"is_deleted\": true\n  }\n]"
+            }
+          ]
+        },
+        {
           "name": "Get Data Source by Provider",
           "request": {
             "method": "GET",
@@ -128,7 +442,23 @@
               "path": ["data-sources", "provider", "{{provider}}"]
             }
           },
-          "response": []
+          "response": [
+            {
+              "name": "Data Sources by Provider",
+              "originalRequest": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{base_url}}/data-sources/provider/Nasdaq",
+                  "host": ["{{base_url}}"],
+                  "path": ["data-sources", "provider", "Nasdaq"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "[\n  {\n    \"id\": 1,\n    \"name\": \"Nasdaq Data Link (Updated)\",\n    \"description\": \"Historical and real-time financial market data (Updated)\",\n    \"provider\": \"Nasdaq\",\n    \"attributes\": {\n      \"version\": \"2.0\",\n      \"rate_limit\": \"100000_requests_per_day\",\n      \"data_types\": [\"OHLCV\", \"fundamentals\", \"options\"],\n      \"update_frequency\": \"real-time\"\n    },\n    \"version\": 2,\n    \"created_at\": \"2024-01-15T10:00:00.123456+00:00\",\n    \"updated_at\": \"2024-01-15T14:45:00.654321+00:00\",\n    \"deleted_at\": null,\n    \"is_deleted\": false\n  }\n]"
+            }
+          ]
         }
       ]
     },
@@ -145,7 +475,23 @@
               "path": ["time-series", "{{asset_id}}", "{{data_source_id}}"]
             }
           },
-          "response": []
+          "response": [
+            {
+              "name": "Time Series Data Retrieved",
+              "originalRequest": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{base_url}}/time-series/1/1",
+                  "host": ["{{base_url}}"],
+                  "path": ["time-series", "1", "1"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"asset_id\": 1,\n  \"data_source_id\": 1,\n  \"data\": [\n    {\n      \"date\": \"2017-12-29\",\n      \"open\": 170.52,\n      \"high\": 170.59,\n      \"low\": 169.22,\n      \"close\": 169.23,\n      \"volume\": 25642300,\n      \"adj_close\": 165.48\n    },\n    {\n      \"date\": \"2017-12-28\",\n      \"open\": 171.00,\n      \"high\": 171.85,\n      \"low\": 170.48,\n      \"close\": 171.08,\n      \"volume\": 16052200,\n      \"adj_close\": 167.29\n    },\n    {\n      \"date\": \"2017-12-27\",\n      \"open\": 170.10,\n      \"high\": 170.78,\n      \"low\": 169.71,\n      \"close\": 170.60,\n      \"volume\": 21138800,\n      \"adj_close\": 166.82\n    }\n  ],\n  \"metadata\": {\n    \"symbol\": \"AAPL\",\n    \"data_source\": \"Nasdaq Data Link (Updated)\",\n    \"total_records\": 3,\n    \"date_range\": {\n      \"start\": \"2017-12-27\",\n      \"end\": \"2017-12-29\"\n    }\n  }\n}"
+            }
+          ]
         },
         {
           "name": "Get Time Series Data with Date Range",
@@ -167,7 +513,33 @@
               ]
             }
           },
-          "response": []
+          "response": [
+            {
+              "name": "Time Series Data with Date Filter",
+              "originalRequest": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{base_url}}/time-series/1/1?start_date=2017-12-01&end_date=2017-12-31",
+                  "host": ["{{base_url}}"],
+                  "path": ["time-series", "1", "1"],
+                  "query": [
+                    {
+                      "key": "start_date",
+                      "value": "2017-12-01"
+                    },
+                    {
+                      "key": "end_date",
+                      "value": "2017-12-31"
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"asset_id\": 1,\n  \"data_source_id\": 1,\n  \"data\": [\n    {\n      \"date\": \"2017-12-29\",\n      \"open\": 170.52,\n      \"high\": 170.59,\n      \"low\": 169.22,\n      \"close\": 169.23,\n      \"volume\": 25642300,\n      \"adj_close\": 165.48\n    },\n    {\n      \"date\": \"2017-12-28\",\n      \"open\": 171.00,\n      \"high\": 171.85,\n      \"low\": 170.48,\n      \"close\": 171.08,\n      \"volume\": 16052200,\n      \"adj_close\": 167.29\n    },\n    {\n      \"date\": \"2017-12-01\",\n      \"open\": 169.95,\n      \"high\": 171.67,\n      \"low\": 168.50,\n      \"close\": 171.05,\n      \"volume\": 39759300,\n      \"adj_close\": 167.26\n    }\n  ],\n  \"metadata\": {\n    \"symbol\": \"AAPL\",\n    \"data_source\": \"Nasdaq Data Link (Updated)\",\n    \"total_records\": 21,\n    \"filtered_records\": 3,\n    \"date_range\": {\n      \"requested_start\": \"2017-12-01\",\n      \"requested_end\": \"2017-12-31\",\n      \"actual_start\": \"2017-12-01\",\n      \"actual_end\": \"2017-12-29\"\n    }\n  }\n}"
+            }
+          ]
         }
       ]
     },
@@ -194,7 +566,58 @@
               "path": ["ingest", "nasdaq"]
             }
           },
-          "response": []
+          "response": [
+            {
+              "name": "Data Ingestion Started Successfully",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"asset_id\": 1,\n  \"data_source_id\": 1,\n  \"start_date\": \"2010-01-01\",\n  \"end_date\": \"2017-12-31\"\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/ingest/nasdaq",
+                  "host": ["{{base_url}}"],
+                  "path": ["ingest", "nasdaq"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"message\": \"Data ingestion started successfully\",\n  \"ingestion_id\": \"ingest_20240115_143000_aapl_nasdaq\",\n  \"status\": \"processing\",\n  \"asset_symbol\": \"AAPL\",\n  \"data_source\": \"Nasdaq Data Link (Updated)\",\n  \"date_range\": {\n    \"start_date\": \"2010-01-01\",\n    \"end_date\": \"2017-12-31\"\n  },\n  \"estimated_records\": 2000,\n  \"started_at\": \"2024-01-15T14:30:00.123456+00:00\"\n}"
+            },
+            {
+              "name": "Data Ingestion Completed",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"asset_id\": 1,\n  \"data_source_id\": 1,\n  \"start_date\": \"2017-12-01\",\n  \"end_date\": \"2017-12-31\"\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/ingest/nasdaq",
+                  "host": ["{{base_url}}"],
+                  "path": ["ingest", "nasdaq"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"message\": \"Data ingestion completed successfully\",\n  \"ingestion_id\": \"ingest_20240115_143000_aapl_nasdaq\",\n  \"status\": \"completed\",\n  \"asset_symbol\": \"AAPL\",\n  \"data_source\": \"Nasdaq Data Link (Updated)\",\n  \"date_range\": {\n    \"start_date\": \"2017-12-01\",\n    \"end_date\": \"2017-12-31\"\n  },\n  \"records_ingested\": 21,\n  \"started_at\": \"2024-01-15T14:30:00.123456+00:00\",\n  \"completed_at\": \"2024-01-15T14:30:15.789012+00:00\",\n  \"processing_time_seconds\": 15.67\n}"
+            }
+          ]
         }
       ]
     },
@@ -214,6 +637,18 @@
           "response": []
         },
         {
+          "name": "Web Interface",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/web/",
+              "host": ["{{base_url}}"],
+              "path": ["web", ""]
+            }
+          },
+          "response": []
+        },
+        {
           "name": "API Documentation",
           "request": {
             "method": "GET",
@@ -224,6 +659,34 @@
             }
           },
           "response": []
+        },
+        {
+          "name": "Health Check with Database Test",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": ["{{base_url}}"],
+              "path": ["health"]
+            }
+          },
+          "response": [
+            {
+              "name": "Healthy Response",
+              "originalRequest": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{base_url}}/health",
+                  "host": ["{{base_url}}"],
+                  "path": ["health"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"status\": \"healthy\",\n  \"database\": \"connected\",\n  \"timestamp\": \"2025-01-15 10:00:00.123456+00:00\"\n}"
+            }
+          ]
         }
       ]
     }

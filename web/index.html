@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Financial Data Warehouse</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="#">
+                <i class="fas fa-chart-line me-2"></i>
+                Financial Data Warehouse
+            </a>
+        </div>
+    </nav>
+
+    <div class="container-fluid mt-4">
+        <div class="row">
+            <!-- Sidebar -->
+            <div class="col-md-3">
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="fas fa-cog me-2"></i>Menu</h5>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="list-group list-group-flush">
+                            <button class="list-group-item list-group-item-action" id="assets-tab">
+                                <i class="fas fa-coins me-2"></i>Assets
+                            </button>
+                            <button class="list-group-item list-group-item-action" id="datasources-tab">
+                                <i class="fas fa-database me-2"></i>Data Sources
+                            </button>
+                            <button class="list-group-item list-group-item-action" id="timeseries-tab">
+                                <i class="fas fa-chart-area me-2"></i>Time Series
+                            </button>
+                            <button class="list-group-item list-group-item-action" id="ingest-tab">
+                                <i class="fas fa-download me-2"></i>Data Ingestion
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Content -->
+            <div class="col-md-9">
+                <!-- Assets Section -->
+                <div class="content-section" id="assets-content">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h3><i class="fas fa-coins me-2"></i>Assets Management</h3>
+                        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createAssetModal">
+                            <i class="fas fa-plus me-2"></i>Create Asset
+                        </button>
+                    </div>
+                    <div class="card">
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-hover" id="assets-table">
+                                    <thead>
+                                        <tr>
+                                            <th>ID</th>
+                                            <th>Name</th>
+                                            <th>Description</th>
+                                            <th>Symbol</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <!-- Assets will be loaded here -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Data Sources Section -->
+                <div class="content-section d-none" id="datasources-content">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h3><i class="fas fa-database me-2"></i>Data Sources Management</h3>
+                        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createDataSourceModal">
+                            <i class="fas fa-plus me-2"></i>Create Data Source
+                        </button>
+                    </div>
+                    <div class="card">
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-hover" id="datasources-table">
+                                    <thead>
+                                        <tr>
+                                            <th>ID</th>
+                                            <th>Name</th>
+                                            <th>Provider</th>
+                                            <th>Description</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <!-- Data sources will be loaded here -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Time Series Section -->
+                <div class="content-section d-none" id="timeseries-content">
+                    <h3><i class="fas fa-chart-area me-2"></i>Time Series Data</h3>
+                    
+                    <div class="card mb-3">
+                        <div class="card-body">
+                            <div class="row g-3">
+                                <div class="col-md-3">
+                                    <label class="form-label" for="timeseries-asset">Asset</label>
+                                    <select class="form-select" id="timeseries-asset">
+                                        <option value="">Select Asset</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label" for="timeseries-datasource">Data Source</label>
+                                    <select class="form-select" id="timeseries-datasource">
+                                        <option value="">Select Data Source</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label" for="timeseries-start-date">Start Date</label>
+                                    <input type="date" class="form-control" id="timeseries-start-date">
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label" for="timeseries-end-date">End Date</label>
+                                    <input type="date" class="form-control" id="timeseries-end-date">
+                                </div>
+                                <div class="col-md-2">
+                                    <div class="form-label">&nbsp;</div>
+                                    <button class="btn btn-primary d-block w-100" id="load-timeseries">
+                                        <i class="fas fa-search me-2"></i>Load Data
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Metrics Selection -->
+                    <div class="card mb-3" id="metrics-selection" style="display: none;">
+                        <div class="card-header">
+                            <h6><i class="fas fa-chart-line me-2"></i>Select Metrics to Display</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row g-2">
+                                <div class="col-md-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input metric-checkbox" type="checkbox" value="close" id="metric-close" checked>
+                                        <label class="form-check-label" for="metric-close">Close</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input metric-checkbox" type="checkbox" value="open" id="metric-open">
+                                        <label class="form-check-label" for="metric-open">Open</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input metric-checkbox" type="checkbox" value="high" id="metric-high">
+                                        <label class="form-check-label" for="metric-high">High</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input metric-checkbox" type="checkbox" value="low" id="metric-low">
+                                        <label class="form-check-label" for="metric-low">Low</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input metric-checkbox" type="checkbox" value="adj_close" id="metric-adj-close">
+                                        <label class="form-check-label" for="metric-adj-close">Adj Close</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input metric-checkbox" type="checkbox" value="adj_open" id="metric-adj-open">
+                                        <label class="form-check-label" for="metric-adj-open">Adj Open</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input metric-checkbox" type="checkbox" value="adj_high" id="metric-adj-high">
+                                        <label class="form-check-label" for="metric-adj-high">Adj High</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input metric-checkbox" type="checkbox" value="adj_low" id="metric-adj-low">
+                                        <label class="form-check-label" for="metric-adj-low">Adj Low</label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row g-2 mt-2">
+                                <div class="col-md-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input metric-checkbox volume-metric" type="checkbox" value="volume" id="metric-volume">
+                                        <label class="form-check-label" for="metric-volume">Volume</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input metric-checkbox volume-metric" type="checkbox" value="adj_volume" id="metric-adj-volume">
+                                        <label class="form-check-label" for="metric-adj-volume">Adj Volume</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input metric-checkbox" type="checkbox" value="split_ratio" id="metric-split-ratio">
+                                        <label class="form-check-label" for="metric-split-ratio">Split Ratio</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <button class="btn btn-outline-primary btn-sm" id="update-chart">
+                                        <i class="fas fa-sync-alt me-1"></i>Update Chart
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-body">
+                            <canvas id="timeseriesChart" style="display: none;"></canvas>
+                            <div id="timeseries-placeholder" class="text-center text-muted py-5">
+                                <i class="fas fa-chart-line fa-3x mb-3"></i>
+                                <p>Select an asset and data source to view time series data</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Data Ingestion Section -->
+                <div class="content-section d-none" id="ingest-content">
+                    <h3><i class="fas fa-download me-2"></i>Data Ingestion</h3>
+                    
+                    <div class="card">
+                        <div class="card-body">
+                            <form id="ingest-form">
+                                <div class="row g-3">
+                                    <div class="col-md-4">
+                                        <label class="form-label" for="ingest-asset">Asset</label>
+                                        <select class="form-select" id="ingest-asset" required>
+                                            <option value="">Select Asset</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label" for="ingest-datasource">Data Source (Nasdaq)</label>
+                                        <select class="form-select" id="ingest-datasource" required>
+                                            <option value="">Select Data Source</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label" for="ingest-start-date">Start Date</label>
+                                        <input type="date" class="form-control" id="ingest-start-date" required>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label" for="ingest-end-date">End Date</label>
+                                        <input type="date" class="form-control" id="ingest-end-date" required>
+                                    </div>
+                                    <div class="col-md-8">
+                                        <div class="form-label">&nbsp;</div>
+                                        <button type="submit" class="btn btn-success d-block w-100">
+                                            <i class="fas fa-download me-2"></i>Start Ingestion
+                                        </button>
+                                    </div>
+                                </div>
+                            </form>
+                            
+                            <div id="ingestion-progress" class="mt-3" style="display: none;">
+                                <div class="progress">
+                                    <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 100%"></div>
+                                </div>
+                                <small class="text-muted">Ingesting data... This may take a few moments.</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Asset Modal -->
+    <div class="modal fade" id="createAssetModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Create New Asset</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="create-asset-form">
+                        <div class="mb-3">
+                            <label class="form-label" for="asset-name">Name *</label>
+                            <input type="text" class="form-control" id="asset-name" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label" for="asset-description">Description *</label>
+                            <textarea class="form-control" id="asset-description" rows="3" required></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label" for="asset-symbol">Symbol *</label>
+                            <input type="text" class="form-control" id="asset-symbol" placeholder="e.g., AAPL" required>
+                            <small class="form-text text-muted">Stock ticker symbol for Nasdaq data ingestion</small>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label" for="asset-type">Type</label>
+                            <select class="form-select" id="asset-type">
+                                <option value="equity">Equity</option>
+                                <option value="bond">Bond</option>
+                                <option value="currency">Currency</option>
+                                <option value="commodity">Commodity</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label" for="asset-exchange">Exchange</label>
+                            <input type="text" class="form-control" id="asset-exchange" placeholder="e.g., NASDAQ">
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary" form="create-asset-form">Create Asset</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Data Source Modal -->
+    <div class="modal fade" id="createDataSourceModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Create New Data Source</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="create-datasource-form">
+                        <div class="mb-3">
+                            <label class="form-label" for="datasource-name">Name *</label>
+                            <input type="text" class="form-control" id="datasource-name" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label" for="datasource-provider">Provider *</label>
+                            <select class="form-select" id="datasource-provider" required>
+                                <option value="">Select Provider</option>
+                                <option value="Nasdaq">Nasdaq</option>
+                                <option value="Yahoo">Yahoo Finance</option>
+                                <option value="Bloomberg">Bloomberg</option>
+                                <option value="Alpha Vantage">Alpha Vantage</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label" for="datasource-description">Description *</label>
+                            <textarea class="form-control" id="datasource-description" rows="3" required></textarea>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary" form="create-datasource-form">Create Data Source</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container position-fixed bottom-0 end-0 p-3" id="toast-container">
+        <!-- Toasts will be added here -->
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-dark text-light py-3 mt-5">
+        <div class="container text-center">
+            <p class="mb-0">&copy; 2025 Patru Gheorghe Eduard. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

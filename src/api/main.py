@@ -1,9 +1,11 @@
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 import logging
 import time
+import os
 from .routes import assets, data_sources, time_series, ingestion
 
 # Configure logging
@@ -35,6 +37,12 @@ app = FastAPI(
     redoc_url="/redoc",
     lifespan=lifespan
 )
+
+# Mount static files for the web interface
+web_directory = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "web")
+if os.path.exists(web_directory):
+    app.mount("/web", StaticFiles(directory=web_directory, html=True), name="web")
+    logger.info(f"Web interface mounted at /web from {web_directory}")
 
 # Configure CORS
 app.add_middleware(
@@ -97,13 +105,9 @@ async def health_check():
 
 @app.get("/")
 async def root():
-    """Root endpoint"""
-    logger.info("Root endpoint accessed")
-    return {
-        "message": "Welcome to Acme Ltd Financial Data Warehouse API",
-        "docs": "/docs",
-        "redoc": "/redoc"
-    }
+    """Root endpoint redirects to web interface"""
+    logger.info("Root endpoint accessed - redirecting to web interface")
+    return RedirectResponse(url="/web/")
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):

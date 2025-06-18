@@ -14,6 +14,7 @@
 11. [Monitoring](#monitoring)
 12. [Technical Architecture](#technical-architecture)
 13. [Error Handling & Logging](#error-handling--logging)
+14. [Web Interface](#web-interface)
 
 ## Overview
 A financial data warehouse system designed to store, retrieve, and analyze financial data from multiple vendors. Built to meet the requirements for temporal data management and heterogeneous financial instruments.
@@ -46,6 +47,10 @@ financial-data-warehouse/
 │   ├── services/           # Business logic services
 │   ├── utils/              # Utility scripts (e.g., table creation, ingestion)
 │   └── connect_database.py # Database connection setup
+├── web/                    # Web interface (HTML, CSS, JS)
+│   ├── index.html          # Main web interface
+│   ├── styles.css          # Custom styling
+│   └── app.js              # Frontend functionality
 ├── requirements.txt        # Python dependencies
 ├── setup_and_run.sh        # Setup and run script
 ├── README.md               # Project documentation
@@ -92,6 +97,11 @@ pip install -r requirements.txt
 ```bash
 python src/main.py
 ```
+
+### Access the Application
+Once the API is running, open your browser to:
+- **Web Interface**: `http://localhost:8000/web/` - Modern UI for easy management
+- **API Documentation**: `http://localhost:8000/docs` - Interactive API docs
 
 ### Alternative: Quick Setup & Run
 ```bash
@@ -171,3 +181,23 @@ sh setup_and_run.sh
 - Separate logs for ingestion and application
 - Progress tracking for bulk operations
 - Error aggregation and reporting
+
+## Web Interface
+
+The project includes a **modern, responsive web interface** for intuitive data management:
+
+### ✨ Features:
+- 🏦 **Asset Management**: Create, view, and manage financial assets
+- 📊 **Data Sources**: Configure providers (Nasdaq, Yahoo Finance, etc.)
+- 📈 **Time Series Charts**: Interactive visualizations with selectable metrics
+- 🔄 **Data Ingestion**: Easy batch import from Nasdaq Data Link
+- 📱 **Responsive Design**: Works on desktop, tablet, and mobile
+
+### Quick Usage:
+1. Start the API: `python src/main.py`
+2. Open browser: `http://localhost:8000/web/`
+3. Create assets and data sources
+4. Ingest data from Nasdaq
+5. View interactive time series charts with customizable metrics
+
+Built with vanilla HTML/CSS/JavaScript and Bootstrap 5 - no build process required!

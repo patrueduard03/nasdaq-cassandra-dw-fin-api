@@ -97,16 +97,18 @@ class DataIngestionService:
         asset_id: int,
         data_source_id: int,
         start_date: date,
-        end_date: date
+        end_date: date,
+        force_refresh: bool = False
     ) -> None:
         """
-        Ingest data from Nasdaq Data Link for a specific asset.
+        Ingest data from Nasdaq Data Link for a specific asset following temporal paradigm.
         
         Args:
             asset_id: The ID of the asset to ingest data for
             data_source_id: The ID of the Nasdaq data source
             start_date: Start date for data ingestion
             end_date: End date for data ingestion
+            force_refresh: If True, creates new temporal versions for existing data
         """
         try:
             # Get asset and data source
@@ -118,8 +120,8 @@ class DataIngestionService:
             if not data_source:
                 raise ValueError(f"Data source with ID {data_source_id} not found")
 
-            if data_source.provider != "Nasdaq":
-                raise ValueError(f"Data source {data_source_id} is not a Nasdaq data source")
+            if "nasdaq" not in data_source.provider.lower():
+                raise ValueError(f"Data source {data_source_id} is not a Nasdaq data source (provider: {data_source.provider})")
 
             # Get asset symbol from attributes
             asset_attrs = self._convert_attributes_to_dict(asset.attributes)
@@ -127,7 +129,7 @@ class DataIngestionService:
             if not symbol:
                 raise ValueError(f"Asset {asset_id} does not have a 'symbol' attribute")
 
-            logger.info(f"Fetching Nasdaq data for {symbol} from {start_date} to {end_date}")
+            logger.info(f"Fetching Nasdaq data for {symbol} from {start_date} to {end_date} (force_refresh={force_refresh})")
 
             # Use WIKI/PRICES dataset for stock data
             dataset_code = "WIKI/PRICES"
@@ -149,18 +151,41 @@ class DataIngestionService:
                     return
 
                 logger.info(f"Successfully fetched {len(df)} records for {symbol}")
-                logger.info(f"Starting to save {len(df)} records to Cassandra...")
-
-                # Convert DataFrame to our data format and save with progress logging
+                
+                # Check for existing data to determine ingestion strategy
+                existing_data = self.data_repository.get_time_series_data(
+                    asset_id=asset_id,
+                    data_source_id=data_source_id,
+                    start_date=start_date,
+                    end_date=end_date
+                )
+                
+                existing_dates = {data.business_date for data in existing_data}
+                logger.info(f"Found {len(existing_dates)} existing data points in date range")
+                
+                # Convert DataFrame to our data format and save with temporal handling
                 total_records = len(df)
                 saved_count = 0
+                updated_count = 0
+                skipped_count = 0
                 batch_size = 100  # Log progress every 100 records
                 
                 for index, row in df.iterrows():
                     try:
                         business_date = self._ensure_date(row['date'])
                         now = datetime.now()
-                        data = Data(
+                        
+                        # Check if data exists for this date
+                        date_exists = business_date in existing_dates
+                        
+                        if date_exists and not force_refresh:
+                            # Skip existing data unless force_refresh is True
+                            skipped_count += 1
+                            logger.debug(f"Skipping existing data for {symbol} on {business_date}")
+                            continue
+                        
+                        # Create new data point
+                        new_data = Data(
                             asset_id=asset_id,
                             data_source_id=data_source_id,
                             business_date=business_date,
@@ -182,22 +207,35 @@ class DataIngestionService:
                             values_text={},
                             is_deleted=False,
                             valid_from=now,
-                            valid_to=FAR_FUTURE_DATE  # Current version uses far-future date
+                            valid_to=FAR_FUTURE_DATE
                         )
-                        self.data_repository.save(data)
-                        saved_count += 1
+                        
+                        if date_exists and force_refresh:
+                            # Temporal update: close existing version and create new one
+                            success = self.data_repository.save_with_temporal_logic(new_data)
+                            if success:
+                                updated_count += 1
+                            else:
+                                logger.error(f"Failed to update data for {business_date}")
+                        else:
+                            # New data point - use temporal save logic to handle any existing data
+                            success = self.data_repository.save_with_temporal_logic(new_data)
+                            if success:
+                                saved_count += 1
+                            else:
+                                logger.error(f"Failed to save data for {business_date}")
                         
                         # Log progress every batch_size records
-                        if saved_count % batch_size == 0 or saved_count == total_records:
-                            progress_pct = (saved_count / total_records) * 100
-                            logger.info(f"Cassandra save progress for {symbol}: {saved_count}/{total_records} records ({progress_pct:.1f}%) - Date: {business_date}")
+                        total_processed = saved_count + updated_count + skipped_count
+                        if total_processed % batch_size == 0 or total_processed == total_records:
+                            progress_pct = (total_processed / total_records) * 100
+                            logger.info(f"Progress for {symbol}: {total_processed}/{total_records} ({progress_pct:.1f}%) - New: {saved_count}, Updated: {updated_count}, Skipped: {skipped_count}")
                             
                     except Exception as e:
                         logger.error(f"Error processing row for date {row['date']}: {str(e)}")
                         continue
 
-                logger.info(f"Successfully saved {saved_count} data points to Cassandra for {symbol}")
-                logger.info(f"Successfully ingested {saved_count} data points for {symbol}")
+                logger.info(f"Ingestion completed for {symbol}: {saved_count} new, {updated_count} updated, {skipped_count} skipped")
 
             except nasdaqdatalink.AuthenticationError:
                 raise ValueError("Invalid Nasdaq Data Link API key")
@@ -209,3 +247,209 @@ class DataIngestionService:
         except Exception as e:
             logger.error(f"Error ingesting Nasdaq data: {str(e)}")
             raise
+
+    def get_data_coverage_info(
+        self,
+        asset_id: int,
+        data_source_id: int
+    ) -> Dict[str, Any]:
+        """
+        Get information about existing data coverage for an asset and data source.
+        
+        Returns:
+            Dict with coverage info including date ranges, count, etc.
+        """
+        try:
+            # Get all data for this asset/data_source combination
+            all_data = self.data_repository.get_time_series_data(
+                asset_id=asset_id,
+                data_source_id=data_source_id
+            )
+            
+            if not all_data:
+                return {
+                    'has_data': False,
+                    'count': 0,
+                    'start_date': None,
+                    'end_date': None,
+                    'last_updated': None
+                }
+            
+            # Sort by business_date
+            all_data.sort(key=lambda x: x.business_date)
+            
+            return {
+                'has_data': True,
+                'count': len(all_data),
+                'start_date': all_data[0].business_date,
+                'end_date': all_data[-1].business_date,
+                'last_updated': max(data.system_date for data in all_data)
+            }
+            
+        except Exception as e:
+            logger.error(f"Error getting data coverage info: {str(e)}")
+            return {
+                'has_data': False,
+                'count': 0,
+                'start_date': None,
+                'end_date': None,
+                'last_updated': None,
+                'error': str(e)
+            }
+
+    def extend_data_coverage(
+        self,
+        asset_id: int,
+        data_source_id: int,
+        new_start_date: Optional[date] = None,
+        new_end_date: Optional[date] = None
+    ) -> None:
+        """
+        Extend data coverage for an existing asset by ingesting additional date ranges.
+        
+        Args:
+            asset_id: Asset to extend coverage for
+            data_source_id: Data source ID
+            new_start_date: New start date (will ingest from this date to existing start)
+            new_end_date: New end date (will ingest from existing end to this date)
+        """
+        coverage = self.get_data_coverage_info(asset_id, data_source_id)
+        
+        if not coverage['has_data']:
+            raise ValueError(f"No existing data found for asset {asset_id} and data source {data_source_id}")
+        
+        existing_start = coverage['start_date']
+        existing_end = coverage['end_date']
+        
+        # Determine what ranges to ingest
+        ranges_to_ingest = []
+        
+        if new_start_date and new_start_date < existing_start:
+            # Extend backwards
+            extend_end = existing_start - pd.Timedelta(days=1)
+            ranges_to_ingest.append((new_start_date, extend_end.date()))
+            logger.info(f"Will extend coverage backwards from {new_start_date} to {extend_end.date()}")
+        
+        if new_end_date and new_end_date > existing_end:
+            # Extend forwards
+            extend_start = existing_end + pd.Timedelta(days=1)
+            ranges_to_ingest.append((extend_start.date(), new_end_date))
+            logger.info(f"Will extend coverage forwards from {extend_start.date()} to {new_end_date}")
+        
+        if not ranges_to_ingest:
+            logger.info("No extension needed - requested dates are within existing coverage")
+            return
+        
+        # Ingest each range
+        for start_date, end_date in ranges_to_ingest:
+            logger.info(f"Extending coverage from {start_date} to {end_date}")
+            self.ingest_nasdaq_data(
+                asset_id=asset_id,
+                data_source_id=data_source_id,
+                start_date=start_date,
+                end_date=end_date,
+                force_refresh=False  # Don't overwrite existing data during extension
+            )
+
+    def refresh_existing_data(
+        self,
+        asset_id: int,
+        data_source_id: int,
+        start_date: Optional[date] = None,
+        end_date: Optional[date] = None
+    ) -> None:
+        """
+        Refresh existing data by re-ingesting with force_refresh=True.
+        
+        Args:
+            asset_id: Asset to refresh
+            data_source_id: Data source ID  
+            start_date: Start date for refresh (defaults to existing coverage start)
+            end_date: End date for refresh (defaults to existing coverage end)
+        """
+        coverage = self.get_data_coverage_info(asset_id, data_source_id)
+        
+        if not coverage['has_data']:
+            raise ValueError(f"No existing data found for asset {asset_id} and data source {data_source_id}")
+        
+        # Use existing coverage if dates not specified
+        refresh_start = start_date or coverage['start_date']
+        refresh_end = end_date or coverage['end_date']
+        
+        logger.info(f"Refreshing data from {refresh_start} to {refresh_end}")
+        
+        self.ingest_nasdaq_data(
+            asset_id=asset_id,
+            data_source_id=data_source_id,
+            start_date=refresh_start,
+            end_date=refresh_end,
+            force_refresh=True  # Force refresh creates new temporal versions
+        )
+
+    def get_ingestion_status(self, filter_asset_id: Optional[int] = None, filter_data_source_id: Optional[int] = None) -> List[Dict[str, Any]]:
+        """Get ingestion status for assets and data sources."""
+        try:
+            assets_with_data = self.data_repository.get_assets_with_data(filter_data_source_id)
+            status_list = []
+            
+            for asset_id, ds_id, min_date, max_date in assets_with_data:
+                # Skip if filtering by specific asset
+                if filter_asset_id and asset_id != filter_asset_id:
+                    continue
+                    
+                # Get asset details
+                asset = self.asset_repository.get_asset_by_id(asset_id)
+                data_source = self.data_source_repository.get_data_source_by_id(ds_id)
+                
+                if asset and data_source:
+                    status_list.append({
+                        'asset_id': asset_id,
+                        'asset_symbol': asset.attributes.get('symbol', 'N/A'),
+                        'asset_name': asset.name,
+                        'data_source_id': ds_id,
+                        'data_source_name': data_source.name,
+                        'data_source_provider': data_source.provider,
+                        'coverage_start': min_date.isoformat(),
+                        'coverage_end': max_date.isoformat(),
+                        'total_days': (max_date - min_date).days + 1,
+                        'has_data': True
+                    })
+            
+            return status_list
+            
+        except Exception as e:
+            logger.error(f"Error getting ingestion status: {str(e)}")
+            return []
+
+    def check_data_availability(self, asset_id: int, data_source_id: int) -> Dict[str, Any]:
+        """Check data availability for a specific asset and data source."""
+        try:
+            coverage_period = self.data_repository.get_data_coverage_period(asset_id, data_source_id)
+            
+            result = {
+                'asset_id': asset_id,
+                'data_source_id': data_source_id,
+                'has_data': coverage_period is not None,
+                'coverage_start': None,
+                'coverage_end': None,
+                'total_days': 0
+            }
+            
+            if coverage_period:
+                start_date, end_date = coverage_period
+                result.update({
+                    'coverage_start': start_date.isoformat(),
+                    'coverage_end': end_date.isoformat(),
+                    'total_days': (end_date - start_date).days + 1
+                })
+            
+            return result
+            
+        except Exception as e:
+            logger.error(f"Error checking data availability: {str(e)}")
+            return {
+                'asset_id': asset_id,
+                'data_source_id': data_source_id,
+                'has_data': False,
+                'error': str(e)
+            }

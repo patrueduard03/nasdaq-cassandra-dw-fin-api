@@ -58,4 +58,21 @@ class NasdaqIngestionRequest(BaseModel):
     asset_id: int
     data_source_id: int
     start_date: date
-    end_date: date 
+    end_date: date
+    force_refresh: bool = False  # Optional parameter for temporal updates
+
+class DataCoverageRequest(BaseModel):
+    asset_id: int
+    data_source_id: int
+
+class ExtendCoverageRequest(BaseModel):
+    asset_id: int
+    data_source_id: int
+    new_start_date: Optional[date] = None
+    new_end_date: Optional[date] = None
+
+class RefreshDataRequest(BaseModel):
+    asset_id: int
+    data_source_id: int
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None 

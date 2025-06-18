@@ -379,35 +379,83 @@
                 <div class="content-section d-none" id="ingest-content">
                     <h3><i class="fas fa-download me-2"></i>Data Ingestion</h3>
                     
+                    <!-- Ingestion Status Card -->
+                    <div class="card mb-4">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0"><i class="fas fa-info-circle me-2"></i>Ingestion Status</h5>
+                            <button class="btn btn-sm btn-outline-primary" onclick="app.refreshIngestionStatus()">
+                                <i class="fas fa-refresh me-1"></i>Refresh
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-sm" id="ingestion-status-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Asset</th>
+                                            <th>Data Source</th>
+                                            <th>Coverage Period</th>
+                                            <th>Total Days</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <!-- Status will be loaded here -->
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div id="no-data-message" class="text-center text-muted py-3" style="display: none;">
+                                <i class="fas fa-info-circle me-2"></i>No ingested data found. Start by ingesting some data below.
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Data Ingestion Form -->
                     <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0"><i class="fas fa-plus me-2"></i>New Data Ingestion</h5>
+                        </div>
                         <div class="card-body">
                             <form id="ingest-form">
                                 <div class="row g-3">
-                                    <div class="col-md-4">
+                                    <div class="col-md-3">
                                         <label class="form-label" for="ingest-asset">Asset</label>
                                         <select class="form-select" id="ingest-asset" required>
                                             <option value="">Select Asset</option>
                                         </select>
                                     </div>
-                                    <div class="col-md-4">
+                                    <div class="col-md-3">
                                         <label class="form-label" for="ingest-datasource">Data Source (Nasdaq)</label>
                                         <select class="form-select" id="ingest-datasource" required>
                                             <option value="">Select Data Source</option>
                                         </select>
                                     </div>
-                                    <div class="col-md-4">
+                                    <div class="col-md-2">
                                         <label class="form-label" for="ingest-start-date">Start Date</label>
                                         <input type="date" class="form-control" id="ingest-start-date" required>
                                     </div>
-                                    <div class="col-md-4">
+                                    <div class="col-md-2">
                                         <label class="form-label" for="ingest-end-date">End Date</label>
                                         <input type="date" class="form-control" id="ingest-end-date" required>
                                     </div>
-                                    <div class="col-md-8">
+                                    <div class="col-md-2">
                                         <div class="form-label">&nbsp;</div>
-                                        <button type="submit" class="btn btn-success d-block w-100">
-                                            <i class="fas fa-download me-2"></i>Start Ingestion
-                                        </button>
+                                        <div class="d-grid gap-2">
+                                            <button type="submit" class="btn btn-success">
+                                                <i class="fas fa-download me-2"></i>Ingest
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="row mt-3">
+                                    <div class="col-12">
+                                        <div class="form-check">
+                                             <input class="form-check-input" type="checkbox" id="force-refresh">
+                                             <label class="form-check-label" for="force-refresh">
+                                                 <small><i class="fas fa-sync me-1"></i>Force refresh existing data (creates new temporal versions)</small>
+                                             </label>
+                                        </div>
                                     </div>
                                 </div>
                             </form>

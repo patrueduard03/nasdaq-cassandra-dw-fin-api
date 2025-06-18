@@ -85,6 +85,7 @@ class FinancialDataApp {
                 break;
             case 'ingest':
                 await this.populateIngestionSelects();
+                await this.loadIngestionStatus();
                 break;
         }
     }
@@ -132,11 +133,6 @@ class FinancialDataApp {
     populateAssetsTable(assets) {
         const tbody = document.querySelector('#assets-table tbody');
         tbody.innerHTML = '';
-
-        // Debug logging to see what data we're getting
-        if (this.assetsAdminMode) {
-            console.log('Admin mode - Assets data:', assets);
-        }
 
         // Group assets by ID to detect multiple versions
         const assetVersions = {};
@@ -205,11 +201,6 @@ class FinancialDataApp {
                 ` <small class="text-muted">(v${versionIndex}/${versionCount})</small>` : '';
             
             row.className = this.assetsAdminMode ? rowClass : '';
-            
-            // Debug log for temporal fields
-            if (this.assetsAdminMode) {
-                console.log(`Asset ${asset.id}: valid_from=${asset.valid_from}, valid_to=${asset.valid_to}, is_deleted=${asset.is_deleted}, status=${status}`);
-            }
             
             // Admin mode columns (hidden by default)
             const adminColumns = this.assetsAdminMode ? `
@@ -305,7 +296,7 @@ class FinancialDataApp {
                 <div class="mb-2"><strong>Status:</strong> <span class="badge ${asset.is_deleted ? 'bg-danger' : 'bg-success'}">${asset.is_deleted ? 'Deleted' : 'Active'}</span></div>
                 <div class="mb-2"><strong>Created:</strong> ${new Date(asset.system_date).toLocaleString()}</div>
                 ${asset.valid_to ? `<div class="mb-2"><strong>Valid To:</strong> ${new Date(asset.valid_to).toLocaleString()}</div>` : ''}
-                <div class="mb-2"><strong>Attributes:</strong></div>
+                <div class="mb-2"><strong>Attributes:</
                 <ul class="mb-0 ps-3">${attributesHtml}</ul>
             `;
             
@@ -418,11 +409,6 @@ class FinancialDataApp {
         const tbody = document.querySelector('#datasources-table tbody');
         tbody.innerHTML = '';
 
-        // Debug logging to see what data we're getting
-        if (this.dataSourcesAdminMode) {
-            console.log('Admin mode - Data Sources data:', dataSources);
-        }
-
         // Group data sources by ID to detect multiple versions
         const dataSourceVersions = {};
         dataSources.forEach(ds => {
@@ -506,11 +492,6 @@ class FinancialDataApp {
 
             const row = document.createElement('tr');
             row.className = this.dataSourcesAdminMode ? rowClass : '';
-            
-            // Debug log for temporal fields
-            if (this.dataSourcesAdminMode) {
-                console.log(`Data Source ${ds.id}: valid_from=${ds.valid_from}, valid_to=${ds.valid_to}, is_deleted=${ds.is_deleted}, status=${status}`);
-            }
             
             row.innerHTML = `
                 <td>${ds.id}${versionIndicator}</td>
@@ -902,6 +883,27 @@ class FinancialDataApp {
 
             this.populateSelect('timeseries-asset', assets, 'id', 'name');
             this.populateSelect('timeseries-datasource', dataSources, 'id', 'name');
+            
+            // Check if we have pending prefill values
+            if (this.pendingTimeSeriesPrefill) {
+                const { assetId, dataSourceId } = this.pendingTimeSeriesPrefill;
+                
+                // Wait a bit for DOM to update, then prefill
+                setTimeout(async () => {
+                    const assetSelect = document.getElementById('timeseries-asset');
+                    const dataSourceSelect = document.getElementById('timeseries-datasource');
+                    
+                    if (assetSelect && dataSourceSelect) {
+                        assetSelect.value = assetId;
+                        dataSourceSelect.value = dataSourceId;
+                        
+                        // Automatically load the data
+                        await this.loadTimeSeriesData();
+                        
+                        this.showToast('Success', 'Time series data loaded for selected asset', 'success');
+                    }
+                }, 100);
+            }
         } catch (error) {
             console.error('Failed to populate time series selects:', error);
         }
@@ -1357,24 +1359,88 @@ class FinancialDataApp {
     // Data Ingestion
     async populateIngestionSelects() {
         try {
-            const [assets, dataSources] = await Promise.all([
-                this.apiCall('/assets'),
-                this.apiCall('/data-sources')
-            ]);
-
-            // Filter for Nasdaq data sources only
-            const nasdaqDataSources = dataSources.filter(ds => ds.provider === 'Nasdaq');
-
+            const assets = await this.apiCall('/assets');
             this.populateSelect('ingest-asset', assets, 'id', 'name');
-            this.populateSelect('ingest-datasource', nasdaqDataSources, 'id', 'name');
+            
+            // Remove any existing event listeners first
+            const assetSelect = document.getElementById('ingest-asset');
+            const existingListener = assetSelect.cloneNode(true);
+            assetSelect.parentNode.replaceChild(existingListener, assetSelect);
+            
+            // Add event listener for asset selection to update data sources
+            document.getElementById('ingest-asset').addEventListener('change', async (e) => {
+                await this.updateDataSourcesForAsset(e.target.value);
+            });
+            
+            // Initially populate with all Nasdaq data sources
+            await this.loadNasdaqDataSources();
+            
         } catch (error) {
             console.error('Failed to populate ingestion selects:', error);
         }
     }
 
+    async loadNasdaqDataSources(selectedAssetId = null) {
+        try {
+            const dataSources = await this.apiCall('/data-sources');
+            
+            // Filter for Nasdaq-related data sources (including "Nasdaq Data Link")
+            let nasdaqDataSources = dataSources.filter(ds => 
+                ds.provider?.toLowerCase().includes('nasdaq')
+            );
+            
+            if (nasdaqDataSources.length === 0) {
+                console.log('No Nasdaq-related sources found, showing all data sources');
+                nasdaqDataSources = dataSources; // Show all if no Nasdaq sources found
+            }
+            
+            const select = document.getElementById('ingest-datasource');
+            select.innerHTML = '<option value="">Select Data Source</option>';
+            
+            if (selectedAssetId) {
+                // Get existing data source IDs for this asset
+                try {
+                    const response = await this.apiCall(`/ingest/compatible-data-sources/${selectedAssetId}`);
+                    const compatibleSources = response.data || [];
+                    const existingDataSourceIds = compatibleSources
+                        .filter(ds => ds.has_existing_data)
+                        .map(ds => ds.id);
+                    
+                    if (existingDataSourceIds.length > 0) {
+                        // Asset has existing data - show only the data sources that have data
+                        const sourcesWithData = nasdaqDataSources.filter(ds => existingDataSourceIds.includes(ds.id));
+                        this.populateSelect('ingest-datasource', sourcesWithData, 'id', (ds) => {
+                            return `${ds.name} (has data)`;
+                        });
+                    } else {
+                        // Asset has no existing data - show all Nasdaq sources
+                        this.populateSelect('ingest-datasource', nasdaqDataSources, 'id', 'name');
+                    }
+                } catch (error) {
+                    // Fallback to showing all Nasdaq sources
+                    console.warn('Could not check data compatibility, showing all sources:', error);
+                    this.populateSelect('ingest-datasource', nasdaqDataSources, 'id', 'name');
+                }
+            } else {
+                // No asset selected, show all Nasdaq sources normally
+                this.populateSelect('ingest-datasource', nasdaqDataSources, 'id', 'name');
+            }
+            
+        } catch (error) {
+            console.error('Failed to load Nasdaq data sources:', error);
+            const select = document.getElementById('ingest-datasource');
+            select.innerHTML = '<option value="">Error loading data sources</option>';
+        }
+    }
+
+    async updateDataSourcesForAsset(assetId) {
+        await this.loadNasdaqDataSources(assetId);
+    }
+
     async handleDataIngestion(e) {
         e.preventDefault();
         
+        const forceRefresh = document.getElementById('force-refresh').checked;
         const ingestionData = {
             asset_id: parseInt(document.getElementById('ingest-asset').value),
             data_source_id: parseInt(document.getElementById('ingest-datasource').value),
@@ -1390,12 +1456,24 @@ class FinancialDataApp {
             progressDiv.style.display = 'block';
             submitBtn.disabled = true;
             
-            await this.apiCall('/ingest/nasdaq', 'POST', ingestionData);
+            // Choose endpoint based on force refresh option
+            const endpoint = forceRefresh ? '/ingest/nasdaq/refresh' : '/ingest/nasdaq';
+            await this.apiCall(endpoint, 'POST', ingestionData);
             
-            this.showToast('Success', 'Data ingestion completed successfully!', 'success');
+            const message = forceRefresh ? 
+                'Data refresh completed with temporal versioning!' : 
+                'Data ingestion completed successfully!';
+                
+            this.showToast('Success', message, 'success');
             document.getElementById('ingest-form').reset();
+            
+            // Refresh the status table
+            await this.loadIngestionStatus();
+            
         } catch (error) {
             console.error('Failed to ingest data:', error);
+            const errorMessage = forceRefresh ? 'Failed to refresh data' : 'Failed to ingest data';
+            this.showToast('Error', errorMessage, 'error');
         } finally {
             // Hide progress
             progressDiv.style.display = 'none';
@@ -1492,7 +1570,14 @@ class FinancialDataApp {
         options.forEach(option => {
             const optionElement = document.createElement('option');
             optionElement.value = option[valueField];
-            optionElement.textContent = option[textField];
+            
+            // Handle both string field names and functions
+            if (typeof textField === 'function') {
+                optionElement.textContent = textField(option);
+            } else {
+                optionElement.textContent = option[textField];
+            }
+            
             select.appendChild(optionElement);
         });
     }
@@ -1538,9 +1623,7 @@ class FinancialDataApp {
     // Edit data source functionality
     async editDataSource(dataSourceId) {
         try {
-            console.log('editDataSource called with ID:', dataSourceId); // Debug log
             const dataSource = await this.apiCall(`/data-sources/${dataSourceId}`);
-            console.log('Data source loaded:', dataSource); // Debug log
             
             // Populate edit form with current data source data
             document.getElementById('edit-datasource-id').value = dataSource.id;
@@ -1552,7 +1635,6 @@ class FinancialDataApp {
             this.populateEditDataSourceAttributes(dataSource.attributes);
             
             // Show edit modal
-            console.log('Showing edit modal'); // Debug log
             new bootstrap.Modal(document.getElementById('editDataSourceModal')).show();
         } catch (error) {
             console.error('Failed to load data source for editing:', error);
@@ -1565,7 +1647,6 @@ class FinancialDataApp {
         e.preventDefault();
         
         const dataSourceId = document.getElementById('edit-datasource-id').value;
-        console.log('handleEditDataSource called for ID:', dataSourceId); // Debug log
         
         // Collect additional attributes from dynamic form
         const additionalAttributes = this.collectEditDataSourceAttributes();
@@ -1577,8 +1658,6 @@ class FinancialDataApp {
             attributes: additionalAttributes
         };
 
-        console.log('Submitting data source update:', dataSourceData); // Debug log
-
         try {
             await this.apiCall(`/data-sources/${dataSourceId}`, 'PUT', dataSourceData);
             this.showToast('Success', 'Data source updated successfully!', 'success');
@@ -1587,6 +1666,154 @@ class FinancialDataApp {
         } catch (error) {
             console.error('Failed to update data source:', error);
             this.showToast('Error', 'Failed to update data source. Please try again.', 'error');
+        }
+    }
+
+    // Data Ingestion Status
+    async loadIngestionStatus() {
+        try {
+            const response = await this.apiCall('/ingest/status');
+            const statusData = response.data || [];
+            
+            const tbody = document.querySelector('#ingestion-status-table tbody');
+            const noDataMessage = document.getElementById('no-data-message');
+            
+            if (statusData.length === 0) {
+                tbody.innerHTML = '';
+                noDataMessage.style.display = 'block';
+                return;
+            }
+            
+            noDataMessage.style.display = 'none';
+            tbody.innerHTML = statusData.map(item => `
+                <tr>
+                    <td>
+                        <strong>${item.asset_name}</strong><br>
+                        <small class="text-muted">${item.asset_symbol || 'N/A'}</small>
+                    </td>
+                    <td>
+                        <strong>${item.data_source_name}</strong><br>
+                        <small class="text-muted">${item.data_source_provider}</small>
+                    </td>
+                    <td>
+                        ${item.coverage_start} to ${item.coverage_end}
+                    </td>
+                    <td>
+                        <span class="badge bg-primary">${item.total_days} days</span>
+                    </td>
+                    <td>
+                        <div class="btn-group btn-group-sm">
+                            <button class="btn btn-outline-primary" onclick="app.extendCoverage(${item.asset_id}, ${item.data_source_id}, '${item.coverage_end}')" title="Extend coverage">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                            <button class="btn btn-outline-success" onclick="app.refreshData(${item.asset_id}, ${item.data_source_id}, '${item.coverage_start}', '${item.coverage_end}')" title="Refresh data">
+                                <i class="fas fa-sync"></i>
+                            </button>
+                            <button class="btn btn-outline-info" onclick="app.viewTimeSeries(${item.asset_id}, ${item.data_source_id})" title="View time series">
+                                <i class="fas fa-chart-line"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+            
+        } catch (error) {
+            console.error('Failed to load ingestion status:', error);
+            this.showToast('Error', 'Failed to load ingestion status', 'error');
+        }
+    }
+
+    async refreshIngestionStatus() {
+        await this.loadIngestionStatus();
+        this.showToast('Success', 'Ingestion status refreshed', 'success');
+    }
+
+    async extendCoverage(assetId, dataSourceId, currentEndDate) {
+        try {
+            // Switch to the ingestion tab
+            this.showSection('ingest');
+            
+            // Wait a bit for the section to load
+            await new Promise(resolve => setTimeout(resolve, 200));
+            
+            // Prefill the form
+            document.getElementById('ingest-asset').value = assetId;
+            
+            // Update data sources for the asset and then select the specific one
+            await this.updateDataSourcesForAsset(assetId);
+            document.getElementById('ingest-datasource').value = dataSourceId;
+            
+            // Set start date to the day after current end date
+            const nextDay = new Date(currentEndDate);
+            nextDay.setDate(nextDay.getDate() + 1);
+            document.getElementById('ingest-start-date').value = nextDay.toISOString().split('T')[0];
+            
+            // Set end date to today
+            const today = new Date();
+            document.getElementById('ingest-end-date').value = today.toISOString().split('T')[0];
+            
+            // Don't check force refresh for extension
+            document.getElementById('force-refresh').checked = false;
+            
+            // Scroll to the form
+            document.getElementById('ingest-form').scrollIntoView({ behavior: 'smooth' });
+            
+            this.showToast('Info', `Form prefilled to extend coverage from ${nextDay.toISOString().split('T')[0]}`, 'info');
+            
+        } catch (error) {
+            console.error('Error extending coverage:', error);
+            this.showToast('Error', 'Failed to prefill extension form', 'error');
+        }
+    }
+
+    async refreshData(assetId, dataSourceId, startDate, endDate) {
+        if (!confirm('This will refresh all data in the coverage period using temporal versioning. Are you sure?')) {
+            return;
+        }
+        
+        try {
+            const refreshData = {
+                asset_id: assetId,
+                data_source_id: dataSourceId,
+                start_date: startDate,
+                end_date: endDate
+            };
+            
+            const progressDiv = document.getElementById('ingestion-progress');
+            progressDiv.style.display = 'block';
+            
+            await this.apiCall('/ingest/nasdaq/refresh', 'POST', refreshData);
+            
+            this.showToast('Success', 'Data refresh completed successfully!', 'success');
+            
+            // Reload the status table
+            await this.loadIngestionStatus();
+            
+        } catch (error) {
+            console.error('Failed to refresh data:', error);
+            this.showToast('Error', 'Failed to refresh data: ' + (error.message || 'Unknown error'), 'error');
+        } finally {
+            document.getElementById('ingestion-progress').style.display = 'none';
+        }
+    }
+
+    // View time series from ingestion status
+    async viewTimeSeries(assetId, dataSourceId) {
+        try {
+            // Store the values to prefill after section load
+            this.pendingTimeSeriesPrefill = { assetId, dataSourceId };
+            
+            // Switch to time series tab
+            this.showSection('timeseries');
+            
+            // Clear the pending prefill after a short delay to allow for proper prefill
+            setTimeout(() => {
+                this.pendingTimeSeriesPrefill = null;
+            }, 1000);
+            
+        } catch (error) {
+            console.error('Error viewing time series:', error);
+            this.showToast('Error', 'Failed to load time series data', 'error');
         }
     }
 }
@@ -1633,12 +1860,10 @@ window.viewDataSource = (dataSourceId) => {
 
 // Make editDataSource function globally available for onclick handlers
 window.editDataSource = (dataSourceId) => {
-    console.log('Global editDataSource called with ID:', dataSourceId); // Debug log
     if (window.app) {
-        console.log('App instance found, calling app.editDataSource'); // Debug log
         window.app.editDataSource(dataSourceId);
     } else {
-        console.error('App instance not found!'); // Debug log
+        console.error('App instance not found!');
     }
 };
 

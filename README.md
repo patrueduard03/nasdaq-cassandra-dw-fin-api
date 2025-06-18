@@ -9,10 +9,12 @@ A modern financial data warehouse built with **FastAPI** and **Cassandra**, feat
 
 - **🕒 Temporal Database**: Complete audit trail with versioned records (no data loss)
 - **📈 Multi-Asset Support**: Stocks, bonds, currencies, derivatives  
-- **⚡ Real-time Data**: Automated Nasdaq data ingestion
+- **⚡ Real-time Data**: Automated Nasdaq data ingestion with coverage tracking
 - **🎨 Modern Web UI**: Responsive interface with interactive charts
 - **🚀 High Performance**: FastAPI + Cassandra scaling
 - **🔒 Type Safety**: Full Pydantic validation and auto-generated docs
+- **📊 Smart Ingestion**: Automatic data source filtering and coverage extension
+- **🔄 Data Refresh**: Temporal versioning for data updates without loss
 
 ## 📁 Project Structure
 

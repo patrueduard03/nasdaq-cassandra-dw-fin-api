@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -6,10 +6,63 @@ from contextlib import asynccontextmanager
 import logging
 import time
 import os
+import json
+import asyncio
+from datetime import datetime
+from typing import Dict, Set
 from .routes import assets, data_sources, time_series, ingestion
 
 # Configure logging
 logger = logging.getLogger(__name__)
+
+# WebSocket connection manager for progress updates
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: Set[WebSocket] = set()
+        self.progress_data: Dict[str, dict] = {}
+
+    async def connect(self, websocket: WebSocket):
+        await websocket.accept()
+        self.active_connections.add(websocket)
+        logger.info(f"WebSocket connected. Total connections: {len(self.active_connections)}")
+
+    def disconnect(self, websocket: WebSocket):
+        self.active_connections.discard(websocket)
+        logger.info(f"WebSocket disconnected. Total connections: {len(self.active_connections)}")
+
+    async def send_progress_update(self, session_id: str, progress_data: dict):
+        """Send progress update to all connected clients"""
+        logger.info(f"Sending progress update for session {session_id}: {progress_data}")
+        
+        if not self.active_connections:
+            logger.warning("No active WebSocket connections to send progress to")
+            return
+            
+        message = {
+            "type": "progress_update",
+            "session_id": session_id,
+            "data": progress_data
+        }
+        
+        # Store latest progress data
+        self.progress_data[session_id] = progress_data
+        
+        # Send to all connected clients
+        disconnected = set()
+        for connection in self.active_connections:
+            try:
+                await connection.send_text(json.dumps(message))
+                logger.debug("Sent progress update to WebSocket connection")
+            except Exception as e:
+                logger.error(f"Error sending WebSocket message: {e}")
+                disconnected.add(connection)
+        
+        # Remove disconnected clients
+        if disconnected:
+            logger.info(f"Removing {len(disconnected)} disconnected WebSocket connections")
+            self.active_connections -= disconnected
+
+manager = ConnectionManager()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -102,6 +155,29 @@ async def health_check():
                 "error": str(e)
             }
         )
+
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    """WebSocket endpoint for real-time progress updates with improved timeout handling"""
+    await manager.connect(websocket)
+    try:
+        while True:
+            try:
+                # Reduced timeout to improve responsiveness
+                await asyncio.wait_for(websocket.receive_text(), timeout=10.0)
+            except asyncio.TimeoutError:
+                # Send keepalive ping to maintain connection
+                try:
+                    await websocket.send_json({"type": "ping", "timestamp": datetime.now().isoformat()})
+                except (WebSocketDisconnect, ConnectionError):
+                    # If ping fails, connection is likely dead
+                    break
+            except WebSocketDisconnect:
+                break
+    except Exception as e:
+        logger.error(f"WebSocket error: {e}")
+    finally:
+        manager.disconnect(websocket)
 
 @app.get("/")
 async def root():

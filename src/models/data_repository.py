@@ -1,17 +1,42 @@
 from models.data import Data
 from connect_database import session
+from constants import FAR_FUTURE_DATE, DEFAULT_BATCH_SIZE
 from typing import List, Optional, Any, Tuple
 from datetime import datetime, date
+from cassandra.query import BatchStatement, SimpleStatement, BatchType
 from cassandra.util import Date as CassandraDate
 import logging
 
 logger = logging.getLogger(__name__)
 
-FAR_FUTURE_DATE = datetime(9999, 12, 31, 23, 59, 59)
-
 class DataRepository:
     def __init__(self, session_=None):
         self.session = session_ or session
+        # Prepare statements for better performance
+        self._prepare_statements()
+
+    def _prepare_statements(self):
+        """Prepare frequently used statements for better performance"""
+        self.insert_stmt = self.session.prepare("""
+            INSERT INTO data (
+                asset_id, data_source_id, business_date, system_date,
+                values_double, values_int, values_text,
+                is_deleted, valid_from, valid_to
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """)
+        
+        self.update_valid_to_stmt = self.session.prepare("""
+            UPDATE data SET valid_to = ?
+            WHERE asset_id = ? AND data_source_id = ? AND business_date = ? AND system_date = ?
+        """)
+        
+        self.check_existing_stmt = self.session.prepare("""
+            SELECT asset_id, data_source_id, business_date, system_date
+            FROM data 
+            WHERE asset_id = ? AND data_source_id = ? AND business_date = ? 
+            AND is_deleted = false AND valid_to > ?
+            ALLOW FILTERING
+        """)
 
     def get_time_series_data(
         self,
@@ -332,3 +357,94 @@ class DataRepository:
         except Exception as e:
             logger.error(f"Error getting compatible data sources for asset {asset_id}: {str(e)}")
             return []
+    
+    def batch_save_with_temporal_logic(self, data_list: List[Data], batch_size: int = DEFAULT_BATCH_SIZE) -> int:
+        """
+        Efficiently save multiple data records using batch operations with improved error handling.
+        Returns number of successfully saved records.
+        """
+        if not data_list:
+            return 0
+            
+        saved_count = 0
+        now = datetime.now()
+        
+        # Pre-check existing data to optimize batch operations
+        existing_data_map = self._build_existing_data_map(data_list)
+        
+        # Process in batches to avoid timeout
+        for i in range(0, len(data_list), batch_size):
+            batch = data_list[i:i + batch_size]
+            saved_count += self._process_batch(batch, existing_data_map, now)
+            
+            # Log progress for large datasets
+            if len(data_list) > 1000 and saved_count % (batch_size * 10) == 0:
+                logger.info(f"Batch progress: {saved_count}/{len(data_list)} records processed")
+                    
+        logger.info(f"Batch save completed: {saved_count}/{len(data_list)} records saved")
+        return saved_count
+    
+    def _build_existing_data_map(self, data_list: List[Data]) -> dict:
+        """Build a map of existing data for efficient lookup during batch processing."""
+        existing_map = {}
+        unique_keys = set()
+        
+        # Create unique keys to avoid duplicate checks
+        for data in data_list:
+            key = (data.asset_id, data.data_source_id, data.business_date)
+            unique_keys.add(key)
+        
+        # Batch check existing data
+        for asset_id, data_source_id, business_date in unique_keys:
+            existing = self.get_existing_data_for_date(asset_id, data_source_id, business_date)
+            if existing:
+                existing_map[(asset_id, data_source_id, business_date)] = existing
+                
+        return existing_map
+    
+    def _process_batch(self, batch: List[Data], existing_data_map: dict, now: datetime) -> int:
+        """Process a single batch of data with temporal logic."""
+        batch_stmt = BatchStatement(batch_type=BatchType.LOGGED)
+        
+        try:
+            for data in batch:
+                self._add_to_batch(batch_stmt, data, existing_data_map, now)
+            
+            # Execute batch
+            self.session.execute(batch_stmt)
+            return len(batch)
+            
+        except Exception as e:
+            logger.error(f"Batch operation failed: {str(e)}")
+            # Fallback to individual processing
+            return self._process_batch_individually(batch)
+    
+    def _add_to_batch(self, batch_stmt: BatchStatement, data: Data, existing_data_map: dict, now: datetime):
+        """Add data operations to batch statement."""
+        key = (data.asset_id, data.data_source_id, data.business_date)
+        existing = existing_data_map.get(key)
+        
+        if existing:
+            # Update existing record's valid_to
+            batch_stmt.add(self.update_valid_to_stmt, 
+                          (now, existing.asset_id, existing.data_source_id, 
+                           existing.business_date.strftime('%Y-%m-%d'), existing.system_date))
+        
+        # Insert new record
+        business_date_str = data.business_date.strftime('%Y-%m-%d') if isinstance(data.business_date, date) else data.business_date
+        batch_stmt.add(self.insert_stmt, (
+            data.asset_id, data.data_source_id, business_date_str, data.system_date,
+            data.values_double, data.values_int, data.values_text,
+            data.is_deleted, data.valid_from, data.valid_to
+        ))
+    
+    def _process_batch_individually(self, batch: List[Data]) -> int:
+        """Process batch items individually when batch operation fails."""
+        saved_count = 0
+        for data in batch:
+            try:
+                if self.save_with_temporal_logic(data):
+                    saved_count += 1
+            except Exception as individual_error:
+                logger.error(f"Individual save failed for {data.asset_id}-{data.data_source_id}-{data.business_date}: {individual_error}")
+        return saved_count

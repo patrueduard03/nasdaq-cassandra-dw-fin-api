@@ -4,6 +4,8 @@ import logging
 import os
 import nasdaqdatalink
 import pandas as pd
+import uuid
+import asyncio
 from models.asset import Asset
 from models.data_source import DataSource
 from models.data import Data
@@ -11,6 +13,7 @@ from connect_database import session
 from models.data_repository import DataRepository
 from models.data_source_repository import DataSourceRepository
 from models.asset_repository import AssetRepository
+from constants import FAR_FUTURE_DATE, NASDAQ_DATASET_CODE, PROGRESS_UPDATE_INTERVAL
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -18,17 +21,15 @@ load_dotenv()
 
 logger = logging.getLogger("data_ingestion")
 
-# Temporal database constants
-FAR_FUTURE_DATE = datetime(9999, 12, 31, 23, 59, 59)  # For current versions
-
 class DataIngestionService:
     """Service for ingesting data from external sources"""
     
-    def __init__(self):
+    def __init__(self, progress_callback=None):
         self.session = session
         self.data_repository = DataRepository()
         self.data_source_repository = DataSourceRepository()
         self.asset_repository = AssetRepository()
+        self.progress_callback = progress_callback  # Callback for progress updates
         
         # Set up Nasdaq Data Link API key
         api_key = os.getenv('NASDAQ_DATA_LINK_API_KEY')
@@ -37,6 +38,14 @@ class DataIngestionService:
         nasdaqdatalink.read_key(api_key)
         logger.info("Nasdaq API key configured successfully")
         
+    async def send_progress_update(self, session_id: str, progress_data: dict):
+        """Send progress update via callback if available"""
+        if self.progress_callback:
+            try:
+                await self.progress_callback(session_id, progress_data)
+            except Exception as e:
+                logger.error(f"Error sending progress update: {e}")
+
     def _get_data_source_id(self, provider: str) -> int:
         """Get or create data source ID for a provider"""
         data_source = self.data_source_repository.get_by_provider(provider)
@@ -92,13 +101,14 @@ class DataIngestionService:
         except (ValueError, TypeError):
             return default
 
-    def ingest_nasdaq_data(
+    async def ingest_nasdaq_data(
         self,
         asset_id: int,
         data_source_id: int,
         start_date: date,
         end_date: date,
-        force_refresh: bool = False
+        force_refresh: bool = False,
+        session_id: Optional[str] = None
     ) -> None:
         """
         Ingest data from Nasdaq Data Link for a specific asset following temporal paradigm.
@@ -109,8 +119,23 @@ class DataIngestionService:
             start_date: Start date for data ingestion
             end_date: End date for data ingestion
             force_refresh: If True, creates new temporal versions for existing data
+            session_id: Session ID for progress tracking
         """
+        # Generate session_id only if not provided
+        if not session_id:
+            session_id = str(uuid.uuid4())
+            
+        logger.info(f"Starting ingestion with session_id: {session_id}")
+        
         try:
+            # Send initial progress update
+            await self.send_progress_update(session_id, {
+                "stage": "initialization",
+                "message": "Starting data ingestion...",
+                "progress": 0,
+                "total": 0
+            })
+            
             # Get asset and data source
             asset = self.asset_repository.get_asset_by_id(asset_id)
             if not asset:
@@ -131,8 +156,18 @@ class DataIngestionService:
 
             logger.info(f"Fetching Nasdaq data for {symbol} from {start_date} to {end_date} (force_refresh={force_refresh})")
 
-            # Use WIKI/PRICES dataset for stock data
-            dataset_code = "WIKI/PRICES"
+            # Send fetching progress update
+            await self.send_progress_update(session_id, {
+                "stage": "fetching",
+                "message": f"Fetching data for {symbol} from Nasdaq...",
+                "progress": 10,
+                "symbol": symbol,
+                "start_date": start_date.isoformat(),
+                "end_date": end_date.isoformat()
+            })
+
+            # Use optimized dataset code from constants
+            dataset_code = NASDAQ_DATASET_CODE
 
             # Fetch data from Nasdaq
             try:
@@ -168,7 +203,7 @@ class DataIngestionService:
                 saved_count = 0
                 updated_count = 0
                 skipped_count = 0
-                batch_size = 100  # Log progress every 100 records
+                batch_size = PROGRESS_UPDATE_INTERVAL  # Use constant for consistency
                 
                 for index, row in df.iterrows():
                     try:
@@ -231,21 +266,71 @@ class DataIngestionService:
                             progress_pct = (total_processed / total_records) * 100
                             logger.info(f"Progress for {symbol}: {total_processed}/{total_records} ({progress_pct:.1f}%) - New: {saved_count}, Updated: {updated_count}, Skipped: {skipped_count}")
                             
+                            # Send progress update via callback
+                            await self.send_progress_update(session_id, {
+                                "stage": "processing",
+                                "message": f"Processing {symbol}: {total_processed}/{total_records} records",
+                                "progress": min(10 + (progress_pct * 0.8), 90),  # Scale between 10% and 90%
+                                "symbol": symbol,
+                                "processed": total_processed,
+                                "total": total_records,
+                                "saved": saved_count,
+                                "updated": updated_count,
+                                "skipped": skipped_count
+                            })
+                            
                     except Exception as e:
                         logger.error(f"Error processing row for date {row['date']}: {str(e)}")
                         continue
 
                 logger.info(f"Ingestion completed for {symbol}: {saved_count} new, {updated_count} updated, {skipped_count} skipped")
+                
+                # Send completion progress update
+                await self.send_progress_update(session_id, {
+                    "stage": "complete",
+                    "message": f"Ingestion completed for {symbol}: {saved_count} new, {updated_count} updated, {skipped_count} skipped",
+                    "progress": 100,
+                    "summary": {
+                        "saved_count": saved_count,
+                        "updated_count": updated_count,
+                        "skipped_count": skipped_count,
+                        "total_processed": saved_count + updated_count + skipped_count
+                    }
+                })
 
             except nasdaqdatalink.AuthenticationError:
-                raise ValueError("Invalid Nasdaq Data Link API key")
+                error_msg = "Invalid Nasdaq Data Link API key"
+                await self.send_progress_update(session_id, {
+                    "stage": "error",
+                    "message": error_msg,
+                    "progress": 0
+                })
+                raise ValueError(error_msg)
             except nasdaqdatalink.NotFoundError:
-                raise ValueError(f"Dataset {dataset_code} not found")
+                error_msg = f"Dataset {dataset_code} not found"
+                await self.send_progress_update(session_id, {
+                    "stage": "error", 
+                    "message": error_msg,
+                    "progress": 0
+                })
+                raise ValueError(error_msg)
             except Exception as e:
-                raise ValueError(f"Error fetching data from Nasdaq: {str(e)}")
+                error_msg = f"Error fetching data from Nasdaq: {str(e)}"
+                await self.send_progress_update(session_id, {
+                    "stage": "error",
+                    "message": error_msg,
+                    "progress": 0
+                })
+                raise ValueError(error_msg)
 
         except Exception as e:
             logger.error(f"Error ingesting Nasdaq data: {str(e)}")
+            # Send error progress update
+            await self.send_progress_update(session_id, {
+                "stage": "error",
+                "message": f"Error ingesting Nasdaq data: {str(e)}",
+                "progress": 0
+            })
             raise
 
     def get_data_coverage_info(
@@ -297,7 +382,7 @@ class DataIngestionService:
                 'error': str(e)
             }
 
-    def extend_data_coverage(
+    async def extend_data_coverage(
         self,
         asset_id: int,
         data_source_id: int,
@@ -343,7 +428,7 @@ class DataIngestionService:
         # Ingest each range
         for start_date, end_date in ranges_to_ingest:
             logger.info(f"Extending coverage from {start_date} to {end_date}")
-            self.ingest_nasdaq_data(
+            await self.ingest_nasdaq_data(
                 asset_id=asset_id,
                 data_source_id=data_source_id,
                 start_date=start_date,
@@ -351,7 +436,7 @@ class DataIngestionService:
                 force_refresh=False  # Don't overwrite existing data during extension
             )
 
-    def refresh_existing_data(
+    async def refresh_existing_data(
         self,
         asset_id: int,
         data_source_id: int,
@@ -378,7 +463,7 @@ class DataIngestionService:
         
         logger.info(f"Refreshing data from {refresh_start} to {refresh_end}")
         
-        self.ingest_nasdaq_data(
+        await self.ingest_nasdaq_data(
             asset_id=asset_id,
             data_source_id=data_source_id,
             start_date=refresh_start,

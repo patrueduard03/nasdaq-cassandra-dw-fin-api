@@ -95,8 +95,8 @@ python src/main.py                 # Start application
 ```bash
 python src/utils/create_tables.py      # Initialize tables
 python src/utils/test_nasdaq_datalink.py  # Test API connection  
-python src/utils/ingest_nasdaq.py      # Import sample data
 python src/utils/truncate_tables.py    # Clear data
+python src/utils/drop_tables.py        # Drop all tables
 ```
 
 ### Monitoring

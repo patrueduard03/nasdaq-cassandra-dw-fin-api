@@ -590,7 +590,7 @@
               "status": "OK",
               "code": 200,
               "_postman_previewlanguage": "json",
-              "body": "{\n  \"message\": \"Data ingestion started successfully\",\n  \"ingestion_id\": \"ingest_20240115_143000_aapl_nasdaq\",\n  \"status\": \"processing\",\n  \"asset_symbol\": \"AAPL\",\n  \"data_source\": \"Nasdaq Data Link (Updated)\",\n  \"date_range\": {\n    \"start_date\": \"2010-01-01\",\n    \"end_date\": \"2017-12-31\"\n  },\n  \"estimated_records\": 2000,\n  \"started_at\": \"2024-01-15T14:30:00.123456+00:00\"\n}"
+              "body": "{\n  \"message\": \"Data ingestion started\",\n  \"session_id\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n  \"asset_id\": 1,\n  \"data_source_id\": 101,\n  \"date_range\": \"2023-01-01 to 2023-12-31\"\n}"
             },
             {
               "name": "Data Ingestion Completed",
@@ -618,6 +618,71 @@
               "body": "{\n  \"message\": \"Data ingestion completed successfully\",\n  \"ingestion_id\": \"ingest_20240115_143000_aapl_nasdaq\",\n  \"status\": \"completed\",\n  \"asset_symbol\": \"AAPL\",\n  \"data_source\": \"Nasdaq Data Link (Updated)\",\n  \"date_range\": {\n    \"start_date\": \"2017-12-01\",\n    \"end_date\": \"2017-12-31\"\n  },\n  \"records_ingested\": 21,\n  \"started_at\": \"2024-01-15T14:30:00.123456+00:00\",\n  \"completed_at\": \"2024-01-15T14:30:15.789012+00:00\",\n  \"processing_time_seconds\": 15.67\n}"
             }
           ]
+        },
+        {
+          "name": "Refresh Nasdaq Data",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"asset_id\": 1,\n  \"data_source_id\": 1,\n  \"start_date\": \"2023-01-01\",\n  \"end_date\": \"2023-12-31\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/ingest/nasdaq/refresh",
+              "host": ["{{base_url}}"],
+              "path": ["ingest", "nasdaq", "refresh"]
+            }
+          }
+        },
+        {
+          "name": "Get Ingestion Status",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/ingest/status",
+              "host": ["{{base_url}}"],
+              "path": ["ingest", "status"]
+            }
+          }
+        },
+        {
+          "name": "Get Compatible Data Sources",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/ingest/compatible-data-sources/{{asset_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["ingest", "compatible-data-sources", "{{asset_id}}"]
+            }
+          }
+        },
+        {
+          "name": "Check Data Availability",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/ingest/availability/{{asset_id}}/{{data_source_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["ingest", "availability", "{{asset_id}}", "{{data_source_id}}"]
+            }
+          }
+        },
+        {
+          "name": "Get Ingestion Progress",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/ingest/progress/{{session_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["ingest", "progress", "{{session_id}}"]
+            }
+          }
         }
       ]
     },

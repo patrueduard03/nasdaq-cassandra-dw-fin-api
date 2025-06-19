@@ -2,12 +2,10 @@ from typing import List, Optional, Dict, Any
 from datetime import datetime
 from models.data_source import DataSource
 from connect_database import session
+from constants import FAR_FUTURE_DATE
 import logging
 
 logger = logging.getLogger(__name__)
-
-# Temporal database constants
-FAR_FUTURE_DATE = datetime(9999, 12, 31, 23, 59, 59)  # For current versions
 
 # Query constants
 DATA_SOURCE_SELECT_ALL_QUERY = """

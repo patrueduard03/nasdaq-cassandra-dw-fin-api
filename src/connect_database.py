@@ -42,16 +42,27 @@ def get_session():
         CLIENT_SECRET = secrets["secret"]
 
         auth_provider = PlainTextAuthProvider(CLIENT_ID, CLIENT_SECRET)
-        _cluster = Cluster(cloud=cloud_config, auth_provider=auth_provider)
+        
+        # Configure cluster with better defaults for DataStax Astra
+        _cluster = Cluster(
+            cloud=cloud_config, 
+            auth_provider=auth_provider,
+            protocol_version=4,  # Explicitly set protocol version for compatibility
+            connect_timeout=10,   # 10 second connection timeout
+            control_connection_timeout=10
+        )
         _session = _cluster.connect()
         _session.execute("USE lectures")
 
-        # Test connection
-        row = _session.execute("select release_version from system.local").one()
-        if row:
-            logger.info(f"Connected to Cassandra version: {row[0]}")
-        else:
-            logger.warning("Connected to Cassandra but couldn't get version")
+        # Test connection and log version info
+        try:
+            row = _session.execute("select release_version from system.local").one()
+            if row:
+                logger.info(f"Connected to Cassandra version: {row[0]}")
+            else:
+                logger.warning("Connected to Cassandra but couldn't get version")
+        except Exception as version_error:
+            logger.warning(f"Could not retrieve Cassandra version: {version_error}")
             
         return _session
         

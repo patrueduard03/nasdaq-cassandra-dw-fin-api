@@ -2,6 +2,8 @@ from fastapi import APIRouter, HTTPException, Query
 from datetime import date
 from typing import Optional
 import logging
+import uuid
+import asyncio
 
 from ..models import (
     NasdaqIngestionRequest, 
@@ -12,12 +14,19 @@ from ..models import (
 from services.data_ingestion_service import DataIngestionService
 
 router = APIRouter(prefix="/ingest", tags=["ingestion"])
-data_ingestion = DataIngestionService()
 logger = logging.getLogger(__name__)
+
+def get_progress_callback():
+    """Get progress callback function from the main app's connection manager"""
+    try:
+        from ..main import manager
+        return manager.send_progress_update
+    except ImportError:
+        return None
 
 @router.post("/nasdaq")
 async def ingest_nasdaq_data(request: NasdaqIngestionRequest):
-    """Ingest data from Nasdaq.
+    """Ingest data from Nasdaq with real-time progress updates.
     
     Args:
         request: NasdaqIngestionRequest containing:
@@ -27,26 +36,40 @@ async def ingest_nasdaq_data(request: NasdaqIngestionRequest):
             - end_date: End date for data ingestion
     
     Returns:
-        dict: Message with number of data points ingested
+        dict: Message with session ID for tracking progress
     """
-    logger.info(f"Starting Nasdaq data ingestion for asset {request.asset_id}, data source {request.data_source_id}, dates {request.start_date} to {request.end_date}")
+    session_id = str(uuid.uuid4())
+    logger.info(f"Starting Nasdaq data ingestion (session: {session_id}) for asset {request.asset_id}, data source {request.data_source_id}, dates {request.start_date} to {request.end_date}")
     
     try:
-        # Ingest data
-        data_ingestion.ingest_nasdaq_data(
-            request.asset_id,
-            request.data_source_id,
-            request.start_date,
-            request.end_date
-        )
-        logger.info(f"Successfully completed Nasdaq data ingestion for asset {request.asset_id}")
-        return {"message": "Successfully ingested data"}
+        # Create service with progress callback
+        progress_callback = get_progress_callback()
+        data_ingestion = DataIngestionService(progress_callback=progress_callback)
+        
+        # Start ingestion in background
+        asyncio.create_task(data_ingestion.ingest_nasdaq_data(
+            asset_id=request.asset_id,
+            data_source_id=request.data_source_id,
+            start_date=request.start_date,
+            end_date=request.end_date,
+            force_refresh=request.force_refresh,
+            session_id=session_id
+        ))
+        
+        return {
+            "message": "Data ingestion started successfully",
+            "session_id": session_id,
+            "asset_id": request.asset_id,
+            "data_source_id": request.data_source_id,
+            "date_range": f"{request.start_date} to {request.end_date}"
+        }
+        
     except ValueError as e:
-        logger.error(f"Nasdaq ingestion validation error for asset {request.asset_id}: {str(e)}")
+        logger.error(f"Validation error in ingestion request: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        logger.error(f"Nasdaq ingestion failed for asset {request.asset_id}: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Failed to ingest data: {str(e)}")
+        logger.error(f"Failed to start data ingestion: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to start data ingestion: {str(e)}")
 
 @router.get("/status")
 async def get_ingestion_status(asset_id: Optional[int] = Query(None), data_source_id: Optional[int] = Query(None)):
@@ -60,6 +83,8 @@ async def get_ingestion_status(asset_id: Optional[int] = Query(None), data_sourc
         list: List of ingestion status objects
     """
     try:
+        # Create service instance
+        data_ingestion = DataIngestionService()
         status_list = data_ingestion.get_ingestion_status(asset_id, data_source_id)
         return {
             "status": "success",
@@ -82,6 +107,8 @@ async def check_data_availability(asset_id: int, data_source_id: int):
         dict: Data availability information
     """
     try:
+        # Create service instance
+        data_ingestion = DataIngestionService()
         availability = data_ingestion.check_data_availability(asset_id, data_source_id)
         return {
             "status": "success",
@@ -93,33 +120,43 @@ async def check_data_availability(asset_id: int, data_source_id: int):
 
 @router.post("/nasdaq/refresh")
 async def refresh_nasdaq_data(request: NasdaqIngestionRequest):
-    """Refresh existing data from Nasdaq using temporal paradigm.
+    """Refresh existing data from Nasdaq using temporal paradigm with real-time progress updates.
     
     Args:
         request: NasdaqIngestionRequest containing asset_id, data_source_id, start_date, end_date
     
     Returns:
-        dict: Message with refresh results
+        dict: Message with session ID for tracking progress
     """
-    logger.info(f"Starting Nasdaq data refresh for asset {request.asset_id}, data source {request.data_source_id}")
+    session_id = str(uuid.uuid4())
+    logger.info(f"Starting Nasdaq data refresh (session: {session_id}) for asset {request.asset_id}, data source {request.data_source_id}")
     
     try:
-        # Use force_refresh=True to update existing data
-        data_ingestion.ingest_nasdaq_data(
+        # Create service with progress callback
+        progress_callback = get_progress_callback()
+        data_ingestion = DataIngestionService(progress_callback=progress_callback)
+        
+        # Start refresh in background
+        asyncio.create_task(data_ingestion.ingest_nasdaq_data(
             request.asset_id,
             request.data_source_id,
             request.start_date,
             request.end_date,
+            session_id=session_id,
             force_refresh=True
-        )
-        logger.info(f"Successfully refreshed Nasdaq data for asset {request.asset_id}")
-        return {"message": "Successfully refreshed data with temporal versioning"}
+        ))
+        
+        logger.info(f"Started Nasdaq data refresh task for asset {request.asset_id} (session: {session_id})")
+        return {
+            "message": "Data refresh started",
+            "session_id": session_id
+        }
     except ValueError as e:
         logger.error(f"Nasdaq refresh validation error for asset {request.asset_id}: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"Nasdaq refresh failed for asset {request.asset_id}: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Failed to refresh data: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to start refresh: {str(e)}")
 
 @router.get("/compatible-data-sources/{asset_id}")
 async def get_compatible_data_sources(asset_id: int):
@@ -132,6 +169,9 @@ async def get_compatible_data_sources(asset_id: int):
         list: List of data source information with existing data status
     """
     try:
+        # Create service instance
+        data_ingestion = DataIngestionService()
+        
         # Get existing data source IDs for this asset
         existing_ds_ids = data_ingestion.data_repository.get_compatible_data_sources_for_asset(asset_id)
         logger.info(f"Asset {asset_id} has existing data in data sources: {existing_ds_ids}")
@@ -165,3 +205,26 @@ async def get_compatible_data_sources(asset_id: int):
             "data": [],
             "message": str(e)
         }
+
+@router.get("/progress/{session_id}")
+async def get_ingestion_progress(session_id: str):
+    """Get progress for a specific ingestion session (WebSocket fallback).
+    
+    Args:
+        session_id: The session ID returned when starting ingestion
+    
+    Returns:
+        dict: Progress information for the session
+    """
+    try:
+        # For now, return a basic response since the ingestion is asynchronous
+        # In a real implementation, you'd track session progress in a database or cache
+        return {
+            "status": "processing",
+            "progress": 75,  # Default progress when we can't get real status
+            "message": "Processing data ingestion...",
+            "session_id": session_id
+        }
+    except Exception as e:
+        logger.error(f"Error getting ingestion progress for session {session_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get progress: {str(e)}")

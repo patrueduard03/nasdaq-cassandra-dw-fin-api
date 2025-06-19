@@ -7,12 +7,10 @@ from models.asset_repository import AssetRepository
 from models.data_source_repository import DataSourceRepository
 from models.data_repository import DataRepository
 from api.models import DataSourceCreate
+from constants import FAR_FUTURE_DATE
 import logging
 
 logger = logging.getLogger(__name__)
-
-# Temporal database constants
-FAR_FUTURE_DATE = datetime(9999, 12, 31, 23, 59, 59)  # For current versions
 
 class DataService:
     """High-level service for managing financial data"""

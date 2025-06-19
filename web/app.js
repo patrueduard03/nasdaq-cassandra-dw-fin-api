@@ -8,6 +8,8 @@ class FinancialDataApp {
         this.currentChart2 = null; // Secondary chart instance
         this.assetsAdminMode = false; // Track admin mode for assets
         this.dataSourcesAdminMode = false; // Track admin mode for data sources
+        this.websocket = null; // WebSocket connection for real-time updates
+        this.currentIngestionSession = null; // Track current ingestion session
         this.init();
     }
 
@@ -15,6 +17,7 @@ class FinancialDataApp {
         this.bindEvents();
         this.loadInitialData();
         this.setDefaultTab();
+        this.initWebSocket(); // Initialize WebSocket for real-time updates
     }
 
     // Event Binding
@@ -1449,68 +1452,250 @@ class FinancialDataApp {
         };
 
         const progressDiv = document.getElementById('ingestion-progress');
+        const progressBar = progressDiv.querySelector('.progress-bar');
+        const progressText = progressDiv.querySelector('small');
         const submitBtn = document.querySelector('#ingest-form button[type="submit"]');
         
         try {
-            // Show progress
+            // Reset progress bar
+            progressBar.style.width = '0%';
+            progressBar.textContent = '0%';
+            progressText.textContent = 'Starting ingestion...';
+            
+            // Show progress and disable submit button
             progressDiv.style.display = 'block';
             submitBtn.disabled = true;
             
             // Choose endpoint based on force refresh option
             const endpoint = forceRefresh ? '/ingest/nasdaq/refresh' : '/ingest/nasdaq';
-            await this.apiCall(endpoint, 'POST', ingestionData);
+            const response = await this.apiCall(endpoint, 'POST', ingestionData);
             
-            const message = forceRefresh ? 
-                'Data refresh completed with temporal versioning!' : 
-                'Data ingestion completed successfully!';
+            // Store session ID for progress tracking
+            if (response.session_id) {
+                this.currentIngestionSession = response.session_id;
+                console.log('Set current ingestion session:', this.currentIngestionSession); // Debug log
+                progressText.textContent = 'Ingestion started, waiting for progress updates...';
+            } else {
+                // Fallback for older API response without session_id
+                const message = forceRefresh ? 
+                    'Data refresh completed with temporal versioning!' : 
+                    'Data ingestion completed successfully!';
+                    
+                this.showToast('Success', message, 'success');
+                document.getElementById('ingest-form').reset();
                 
-            this.showToast('Success', message, 'success');
-            document.getElementById('ingest-form').reset();
-            
-            // Refresh the status table
-            await this.loadIngestionStatus();
+                // Refresh the status table
+                await this.loadIngestionStatus();
+                
+                // Hide progress
+                progressDiv.style.display = 'none';
+                submitBtn.disabled = false;
+            }
             
         } catch (error) {
             console.error('Failed to ingest data:', error);
             const errorMessage = forceRefresh ? 'Failed to refresh data' : 'Failed to ingest data';
             this.showToast('Error', errorMessage, 'error');
-        } finally {
-            // Hide progress
+            
+            // Hide progress and re-enable submit button
             progressDiv.style.display = 'none';
             submitBtn.disabled = false;
+            this.currentIngestionSession = null;
         }
     }
 
-    // View data source details
-    async viewDataSource(dataSourceId) {
-        try {
-            const dataSource = await this.apiCall(`/data-sources/${dataSourceId}`);
-            
-            // Format attributes for display
-            const attributesHtml = dataSource.attributes && Object.keys(dataSource.attributes).length > 0
-                ? Object.entries(dataSource.attributes)
-                    .map(([key, value]) => `<li><strong>${key}:</strong> ${value}</li>`)
-                    .join('')
-                : '<li class="text-muted">No attributes defined</li>';
-            
-            // Show details in a modal-like toast
-            const detailsHtml = `
-                <div class="mb-2"><strong>ID:</strong> ${dataSource.id}</div>
-                <div class="mb-2"><strong>Name:</strong> ${dataSource.name}</div>
-                <div class="mb-2"><strong>Provider:</strong> ${dataSource.provider}</div>
-                <div class="mb-2"><strong>Description:</strong> ${dataSource.description || 'None'}</div>
-                <div class="mb-2"><strong>Status:</strong> <span class="badge ${dataSource.is_deleted ? 'bg-danger' : 'bg-success'}">${dataSource.is_deleted ? 'Deleted' : 'Active'}</span></div>
-                <div class="mb-2"><strong>Created:</strong> ${new Date(dataSource.system_date).toLocaleString()}</div>
-                ${dataSource.valid_to ? `<div class="mb-2"><strong>Valid To:</strong> ${new Date(dataSource.valid_to).toLocaleString()}</div>` : ''}
-                <div class="mb-2"><strong>Attributes:</strong></div>
-                <ul class="mb-0 ps-3">${attributesHtml}</ul>
-            `;
-            
-            this.showToast('Data Source Details', detailsHtml, 'info', 8000);
-        } catch (error) {
-            console.error('Failed to load data source details:', error);
-            this.showToast('Error', 'Failed to load data source details', 'error');
+    // WebSocket Management
+    initWebSocket() {
+        // Prevent multiple WebSocket connections
+        if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
+            return;
         }
+        
+        try {
+            const wsUrl = this.baseURL.replace('http://', 'ws://').replace('https://', 'wss://') + '/ws';
+            console.log('Connecting to WebSocket:', wsUrl);
+            this.websocket = new WebSocket(wsUrl);
+            
+            this.websocket.onopen = () => {
+                console.log('WebSocket connected for real-time updates');
+                this.websocketReconnectAttempts = 0;
+                this.websocketConnected = true;
+            };
+            
+            this.websocket.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    this.handleProgressUpdate(data);
+                } catch (e) {
+                    console.error('Failed to parse WebSocket message:', e, event.data);
+                }
+            };
+            
+            this.websocket.onclose = (event) => {
+                console.log('WebSocket disconnected:', event.code, event.reason);
+                this.websocketConnected = false;
+                
+                // Auto-reconnect only if we have an active ingestion session
+                if (this.currentIngestionSession && this.websocketReconnectAttempts < 3) {
+                    this.websocketReconnectAttempts = (this.websocketReconnectAttempts || 0) + 1;
+                    console.log(`WebSocket reconnection attempt ${this.websocketReconnectAttempts}/3`);
+                    setTimeout(() => this.initWebSocket(), 1000 * this.websocketReconnectAttempts);
+                } else if (this.currentIngestionSession) {
+                    console.log('WebSocket reconnection limit reached, using polling fallback');
+                    this.startProgressPolling();
+                }
+            };
+            
+            this.websocket.onerror = (error) => {
+                console.error('WebSocket error:', error);
+                this.websocketConnected = false;
+            };
+        } catch (error) {
+            console.error('Failed to initialize WebSocket:', error);
+            this.websocketConnected = false;
+            if (this.currentIngestionSession) {
+                this.startProgressPolling();
+            }
+        }
+    }
+
+    // Fallback when WebSocket connection fails - use polling
+    startProgressPolling() {
+        if (!this.currentIngestionSession) return;
+        
+        console.log('Starting progress polling for session:', this.currentIngestionSession);
+        
+        this.pollInterval = setInterval(async () => {
+            try {
+                // Poll ingestion status to check completion
+                const response = await this.apiCall(`/ingest/status?session_id=${this.currentIngestionSession}`);
+                
+                if (response.status === 'complete') {
+                    this.handleIngestionComplete(true, response.message || 'Ingestion completed');
+                    clearInterval(this.pollInterval);
+                } else if (response.status === 'error') {
+                    this.handleIngestionError(response.message || 'Ingestion failed');
+                    clearInterval(this.pollInterval);
+                } else {
+                    // Update progress if available
+                    const progress = response.progress || 50; // Default progress
+                    this.updateProgressBar(progress, response.message || 'Processing...');
+                }
+            } catch (error) {
+                console.error('Polling error:', error);
+                // After several failed polls, assume completion
+                this.pollFailures = (this.pollFailures || 0) + 1;
+                if (this.pollFailures >= 5) {
+                    this.handleIngestionComplete(true, 'Ingestion completed (polling timeout)');
+                    clearInterval(this.pollInterval);
+                }
+            }
+        }, 2000); // Poll every 2 seconds
+        
+        // Timeout after 5 minutes
+        setTimeout(() => {
+            if (this.pollInterval) {
+                clearInterval(this.pollInterval);
+                this.handleIngestionComplete(true, 'Ingestion completed (timeout)');
+            }
+        }, 300000);
+    }
+
+    handleProgressUpdate(data) {
+        console.log('Received progress update:', data); // Debug log
+        
+        if (data.type === 'progress_update') {
+            const stage = data.data.stage;
+            const progress = data.data.progress || 0;
+            const message = data.data.message || 'Processing...';
+            
+            console.log(`Progress update: ${progress}% - ${message} (stage: ${stage}, session: ${data.session_id})`); // Debug log
+            
+            // If we don't have a current session, or if this is a new session, accept it
+            if (!this.currentIngestionSession || data.session_id === this.currentIngestionSession) {
+                console.log('Processing message for session:', data.session_id);
+                
+                // Update current session if not set
+                if (!this.currentIngestionSession) {
+                    this.currentIngestionSession = data.session_id;
+                    console.log('Updated current session to:', this.currentIngestionSession);
+                }
+                
+                if (stage === 'complete') {
+                    this.handleIngestionComplete(true, message);
+                } else if (stage === 'error') {
+                    this.handleIngestionError(message);
+                } else {
+                    this.updateProgressBar(progress, message);
+                }
+            } else {
+                console.log('Ignoring message - session mismatch:', {
+                    received_session: data.session_id,
+                    current_session: this.currentIngestionSession,
+                    type: data.type
+                });
+            }
+        } else {
+            console.log('Ignoring message - unknown type:', data.type);
+        }
+    }
+
+    updateProgressBar(progress, message) {
+        const progressDiv = document.getElementById('ingestion-progress');
+        const progressBar = progressDiv.querySelector('.progress-bar');
+        const progressText = progressDiv.querySelector('small');
+        
+        // Update progress bar
+        progressBar.style.width = `${progress}%`;
+        progressBar.textContent = `${Math.round(progress)}%`;
+        
+        // Update message
+        if (message) {
+            progressText.textContent = message;
+        }
+        
+        // Show progress if hidden
+        if (progressDiv.style.display === 'none') {
+            progressDiv.style.display = 'block';
+        }
+    }
+
+    handleIngestionComplete(success, message) {
+        const progressDiv = document.getElementById('ingestion-progress');
+        const submitBtn = document.querySelector('#ingest-form button[type="submit"]');
+        
+        // Clear any active polling
+        if (this.pollInterval) {
+            clearInterval(this.pollInterval);
+            this.pollInterval = null;
+        }
+        
+        if (success) {
+            this.showToast('Success', message || 'Data ingestion completed successfully!', 'success');
+            document.getElementById('ingest-form').reset();
+            // Refresh the status table
+            this.loadIngestionStatus();
+        } else {
+            this.showToast('Error', message || 'Data ingestion failed', 'error');
+        }
+        
+        // Hide progress and re-enable submit button
+        progressDiv.style.display = 'none';
+        submitBtn.disabled = false;
+        this.currentIngestionSession = null;
+        this.pollFailures = 0;
+    }
+
+    handleIngestionError(message) {
+        const progressDiv = document.getElementById('ingestion-progress');
+        const submitBtn = document.querySelector('#ingest-form button[type="submit"]');
+        
+        this.showToast('Error', message || 'Data ingestion failed', 'error');
+        
+        // Hide progress and re-enable submit button
+        progressDiv.style.display = 'none';
+        submitBtn.disabled = false;
+        this.currentIngestionSession = null;
     }
 
     // Admin Mode Functions

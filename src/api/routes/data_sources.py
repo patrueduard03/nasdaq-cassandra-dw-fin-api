@@ -104,3 +104,26 @@ async def delete_data_source(data_source_id: int):
     except Exception as e:
         logger.error(f"Failed to delete data source ID {data_source_id}: {str(e)}")
         raise HTTPException(status_code=500, detail=f"{ERROR_DATA_SOURCE_DELETION_FAILED}: {str(e)}")
+
+@router.post("/{data_source_id}/resurrect", response_model=DataSourceResponse)
+async def resurrect_data_source(data_source_id: int, data_source: DataSourceCreate):
+    """Resurrect a previously deleted data source"""
+    logger.info(f"Attempting to resurrect data source with ID: {data_source_id}")
+    
+    # Check if data source exists and is deleted
+    existing_data_source = data_service.get_data_source_by_id_including_deleted(data_source_id)
+    if not existing_data_source:
+        logger.warning(f"Data source not found for resurrection: ID {data_source_id}")
+        raise HTTPException(status_code=404, detail=ERROR_DATA_SOURCE_NOT_FOUND)
+    
+    if not existing_data_source.is_deleted:
+        logger.warning(f"Cannot resurrect - data source is not deleted: ID {data_source_id}")
+        raise HTTPException(status_code=409, detail="Data source is not deleted and cannot be resurrected")
+    
+    try:
+        resurrected_data_source = data_service.data_source_repo.resurrect_data_source(data_source_id, data_source.dict())
+        logger.info(f"Successfully resurrected data source: {resurrected_data_source.name} (ID: {data_source_id})")
+        return resurrected_data_source
+    except Exception as e:
+        logger.error(f"Failed to resurrect data source ID {data_source_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to resurrect data source: {str(e)}")

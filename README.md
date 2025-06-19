@@ -119,6 +119,9 @@ tail -f logs/ingestion.log  # Data ingestion logs
 - `POST /data-sources` - Create source
 - `PUT /data-sources/{id}` - Update source
 - `DELETE /data-sources/{id}` - Soft delete
+- `POST /data-sources/{id}/resurrect` - Restore deleted source
+- `GET /admin/data-sources/all` - All versions + deleted
+- `GET /data-sources/provider/{provider}` - Get by provider
 
 ### 📈 Time Series
 - `GET /time-series/{asset_id}/{source_id}` - Get data
@@ -126,11 +129,18 @@ tail -f logs/ingestion.log  # Data ingestion logs
 
 ### 📥 Data Ingestion
 - `POST /ingest/nasdaq` - Import Nasdaq data
+- `POST /ingest/nasdaq/refresh` - Refresh existing data with temporal versioning
+- `GET /ingest/status` - Get ingestion status for assets
+- `GET /ingest/availability/{asset_id}/{data_source_id}` - Check data availability
+- `GET /ingest/compatible-data-sources/{asset_id}` - Get compatible data sources
+- `GET /ingest/progress/{session_id}` - Get ingestion progress by session
 
 ### 🛠️ Utilities
 - `GET /` - Health check
+- `GET /health` - Detailed health check with database connectivity
 - `GET /docs` - API documentation  
 - `GET /web/` - Web interface
+- `WS /ws` - WebSocket endpoint for real-time progress updates
 
 ## 🏛️ Temporal Database
 

@@ -380,6 +380,16 @@
           "name": "Resurrect Data Source (Restore Deleted)",
           "request": {
             "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Nasdaq Data Link (Resurrected)\",\n  \"description\": \"Historical and real-time financial market data (Restored from deletion)\",\n  \"provider\": \"Nasdaq\",\n  \"attributes\": {\n    \"version\": \"2.0\",\n    \"rate_limit\": \"100000_requests_per_day\",\n    \"data_types\": [\"OHLCV\", \"fundamentals\", \"options\"],\n    \"status\": \"resurrected\",\n    \"restoration_date\": \"2025-01-15\"\n  }\n}"
+            },
             "url": {
               "raw": "{{base_url}}/data-sources/{{data_source_id}}/resurrect",
               "host": ["{{base_url}}"],

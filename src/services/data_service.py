@@ -123,6 +123,10 @@ class DataService:
         """Get asset by ID including deleted ones"""
         return self.asset_repo.get_asset_by_id_including_deleted(asset_id)
 
+    def get_data_source_by_id_including_deleted(self, data_source_id: int) -> Optional[DataSource]:
+        """Get data source by ID including deleted ones"""
+        return self.data_source_repo.get_data_source_by_id_including_deleted(data_source_id)
+
     def mark_asset_deleted(self, asset_id: int) -> None:
         """Mark an asset as deleted"""
         asset = self.asset_repo.get_asset_by_id(asset_id)
